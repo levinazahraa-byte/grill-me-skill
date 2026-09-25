@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Zahra Levina — 2026 portfolio deck, Y2K edition.
+"""Zahra Levina — 2026 portfolio. "Angel" direction.
 
-Each slide is composed as layered artwork in Pillow (asset foundry: y2k.py),
-exported full-bleed, and assembled into a 16:9 .pptx with live editable body
-copy and picture-fillable photo frames on top.
+Y2K fashion editorial first: tonal pink, black lace, leopard, rhinestone and
+chrome-script lettering, pearl strings, butterflies. Interface elements appear
+only where they serve the story, dressed in the same palette.
 
-Ten slides, ten formats: poster, scrapbook, magazine spread, desktop explorer,
-personal website, contact sheet, event flyer, cut-and-paste page, sticker
-sheet, chat thread.
+Every graphic is placed as its OWN layer (a separate PNG), so the deck opens in
+Canva or PowerPoint as movable objects rather than a flattened picture. Body
+copy stays live text.
 """
 
-import math, os
-from PIL import Image, ImageDraw
+import hashlib, math, os
+from PIL import Image
 from pptx import Presentation
 from pptx.util import Emu, Pt
 from pptx.dml.color import RGBColor
@@ -20,511 +20,607 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.dml import MSO_LINE_DASH_STYLE
 
 import y2k as y
-from y2k import (paste, font, u, S, HOT, BUBBLEGUM, BABY, LILAC, CYBER, LIME, BUTTER,
-                 INKY, CREAM, BUBBLE, SHADE, BUNGEE, INLINE, PIXEL, TERM, SIGMAR,
-                 MODAK, SILK, SILKB, BAGEL, CHICLE)
+from y2k import (font, u, S, MAGENTA, ROSE, BLUSH, SHELL, NOIR, PEARL, ICE,
+                 ITALIANA, BODONI, CORMORANT, PINYON, ALLURA, OSWALD, ARCHIVO,
+                 ARCHIVO_BLACK, SILK, SILKB)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ART = os.path.join(HERE, "assets", "slides")
-os.makedirs(ART, exist_ok=True)
+ELEM = os.path.join(HERE, "assets", "elements")
+for d in (ART, ELEM):
+    os.makedirs(d, exist_ok=True)
 
-INK_HEX, MUTE_HEX = "1C1430", "6B5A82"
-BODY_F, UI_F = "Verdana", "Tahoma"
+INK, MUTE, PINK_HEX = "100A16", "7A6478", "FF2E93"
+BODY_F = "Trebuchet MS"
 
 def px(v):
     return Emu(int(round(v * 6350)))
 
-def canvas(bg=None):
-    im = Image.new("RGBA", (y.W, y.H), (255, 255, 255, 255))
-    if bg is not None:
-        paste(im, bg, (0, 0))
-    return im
-
-def photo_card(art, pos, size, angle, caption, slots, lip=18, fill=(252, 250, 255)):
-    """Photo card into the art + the matching fillable slot for pptx."""
-    card, inner, csize = y.polaroid(size, caption=caption, fill=fill, lip=lip)
-    rot = card.rotate(angle, resample=Image.BICUBIC, expand=True) if angle else card
-    x0, y0 = u(pos[0]), u(pos[1])
-    art.alpha_composite(rot, (x0, y0))
-    icx, icy = (inner[0] + inner[2]) / 2, (inner[1] + inner[3]) / 2
-    cw, ch = csize
-    th = math.radians(angle)
-    dx, dy = icx - cw / 2, icy - ch / 2
-    nx = dx * math.cos(th) + dy * math.sin(th)
-    ny = -dx * math.sin(th) + dy * math.cos(th)
-    slots.append(dict(cx=(x0 + rot.size[0] / 2 + nx) / S, cy=(y0 + rot.size[1] / 2 + ny) / S,
-                      w=(inner[2] - inner[0]) / S, h=(inner[3] - inner[1]) / S, rot=angle))
-    return rot.size
-
-def stickers(art, items):
-    for ch, size, pos, rot in items:
-        paste(art, y.emoji(ch, size, rot=rot), pos, anchor="c")
-
-def desk_icon(art, pos, ch, label, size=86):
-    paste(art, y.emoji(ch, size), (pos[0], pos[1]), anchor="tc")
-    paste(art, y.pixel_text(label, 12, (32, 24, 56), shadow=u(1), shadow_c=(255, 255, 255)),
-          (pos[0], pos[1] + size + 14), anchor="tc")
-
-# ------------------------------------------------------------ pptx helpers
 prs = Presentation()
 prs.slide_width, prs.slide_height = px(1920), px(1080)
 BLANK = prs.slide_layouts[6]
 
-def T(sl, x, yy, w, h, text, size=15, font_name=BODY_F, bold=False, color=INK_HEX,
-      align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP, spacing=1.45, after=9):
-    tb = sl.shapes.add_textbox(px(x), px(yy), px(w), px(h))
-    tf = tb.text_frame
-    tf.word_wrap = True
-    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
-    tf.vertical_anchor = anchor
-    lines = text if isinstance(text, (list, tuple)) else [text]
-    for i, t in enumerate(lines):
-        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.alignment = align
-        p.line_spacing = spacing
-        p.space_after = Pt(after if len(lines) > 1 else 0)
-        r = p.add_run()
-        r.text = t
-        r.font.name = font_name
-        r.font.size = Pt(size)
-        r.font.bold = bold
-        r.font.color.rgb = RGBColor.from_string(color)
-    return tb
+_written = {}
 
-def add_art(sl, path):
-    sl.shapes.add_picture(path, px(0), px(0), px(1920), px(1080))
+def _save_element(img, name):
+    data = img.tobytes()
+    key = hashlib.md5(data + str(img.size).encode()).hexdigest()[:12]
+    if key in _written:
+        return _written[key]
+    path = os.path.join(ELEM, "%s_%s.png" % (name, key))
+    img.save(path, optimize=True)
+    _written[key] = path
+    return path
 
-def add_slots(sl, slots):
-    for s in slots:
-        shp = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, px(s["cx"] - s["w"] / 2),
-                                  px(s["cy"] - s["h"] / 2), px(s["w"]), px(s["h"]))
-        shp.shadow.inherit = False
-        shp.fill.solid()
-        shp.fill.fore_color.rgb = RGBColor.from_string("EFF1FB")
-        shp.line.color.rgb = RGBColor.from_string("B27BFF")
-        shp.line.width = Pt(1.5)
-        shp.line.dash_style = MSO_LINE_DASH_STYLE.DASH
-        if s.get("rot"):
-            shp.rotation = s["rot"]
-        p = shp.text_frame.paragraphs[0]
-        p.alignment = PP_ALIGN.CENTER
-        r = p.add_run()
-        r.text = "drop photo"
-        r.font.name = UI_F
-        r.font.size = Pt(9)
-        r.font.color.rgb = RGBColor.from_string("9A86B5")
 
-def finish(idx, art, overlay=None):
-    bgp = os.path.join(ART, "s%02d.jpg" % idx)
-    art.convert("RGB").save(bgp, quality=93, optimize=True)
-    ovp = None
-    if overlay is not None:
-        ovp = os.path.join(ART, "s%02d_over.png" % idx)
-        overlay.save(ovp, optimize=True)
-    return bgp, ovp
+class Slide(object):
+    """Collects a flattened background plus an ordered stack of live layers."""
 
-def assemble(idx, art, slots=None, over=None):
-    bg, ov = finish(idx, art, over)
-    sl = prs.slides.add_slide(BLANK)
-    add_art(sl, bg)
-    if slots:
-        add_slots(sl, slots)
-    if ov:
-        add_art(sl, ov)
-    return sl
+    def __init__(self, idx, bg=None):
+        self.idx = idx
+        self.bg = Image.new("RGBA", (y.W, y.H), SHELL + (255,))
+        if bg is not None:
+            y.paste(self.bg, bg, (0, 0))
+        self.layers = []
 
-# =========================================================== 1 — cover poster
+    # --- background (textures only; flattened into one image) ---
+    def wash(self, img, xy=(0, 0)):
+        y.paste(self.bg, img, xy)
+
+    # --- layers ---
+    def el(self, img, xy, anchor="tl", name="el", rot=None):
+        if rot:
+            img = img.rotate(rot, resample=Image.BICUBIC, expand=True)
+        x, yy = xy
+        if anchor in ("c", "tc"):
+            x -= img.size[0] / S / 2
+        if anchor == "c":
+            yy -= img.size[1] / S / 2
+        self.layers.append(("img", img, x, yy, name))
+        return img.size[0] / S, img.size[1] / S
+
+    def slot(self, cx, cy, w, h, rot=0):
+        self.layers.append(("slot", dict(cx=cx, cy=cy, w=w, h=h, rot=rot)))
+
+    def text(self, x, yy, w, h, text, size=13.5, bold=False, color=INK,
+             align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP, spacing=1.5, after=10,
+             font_name=None):
+        self.layers.append(("text", dict(x=x, y=yy, w=w, h=h, text=text, size=size,
+                                         bold=bold, color=color, align=align,
+                                         anchor=anchor, spacing=spacing, after=after,
+                                         font_name=font_name or BODY_F)))
+
+    # --- composition helpers ---
+    def framed_slot(self, pos, size, stone=15, color=MAGENTA, caption=None, tilt=0):
+        fr, inner = y.gem_frame(size, stone=stone, color=color, fill=(243, 238, 246))
+        self.el(fr, pos, name="gemframe", rot=tilt)
+        cx = pos[0] + ((inner[0] + inner[2]) / 2) / S
+        cy = pos[1] + ((inner[1] + inner[3]) / 2) / S
+        self.slot(cx, cy, (inner[2] - inner[0]) / S, (inner[3] - inner[1]) / S, -tilt)
+        if caption:
+            self.el(y.tracked(caption.upper(), font(SILK, 11), (150, 128, 150), tracking=3),
+                    (cx, pos[1] + size[1] + 16), anchor="tc", name="caption")
+        return cx, cy
+
+    def panel(self, size, pos, **kw):
+        """Glass panel positioned by its visible rectangle (the bitmap carries pad)."""
+        self.el(y.glass_panel(size, **kw), (pos[0] - 18, pos[1] - 18), name="panel")
+
+    def pill(self, text, pos, height=46, pad=42, tint=(255, 238, 247), color=MAGENTA, size=13):
+        w = pad + len(text) * 12.5
+        self.panel((w, height), pos, radius=height / 2, tint=tint, alpha=244)
+        self.el(y.tracked(text, font(OSWALD, size), color, tracking=5),
+                (pos[0] + w / 2, pos[1] + (height - 22) / 2), anchor="tc", name="pilltext")
+        return w
+
+    def hairline(self, x, yy, length, color=NOIR, weight=1.1, vertical=False):
+        self.el(y.hairline(length, color, weight, horizontal=not vertical), (x, yy), name="rule")
+
+    def label(self, x, yy, text, size=17, color=NOIR, tracking=8, fnt=OSWALD, anchor="tl"):
+        return self.el(y.tracked(text, font(fnt, size), color, tracking=tracking),
+                       (x, yy), anchor=anchor, name="label")
+
+    def jewels(self, items):
+        for spec in items:
+            kind = spec[0]
+            if kind == "gem":
+                _, size, pos, col, cut, rot = spec
+                self.el(y.gem(size, col, cut=cut, rot=rot), pos, anchor="c", name="gem")
+            elif kind == "sparkle":
+                _, size, pos, col = spec
+                self.el(y.sparkle(size, col, glow_c=ROSE), pos, anchor="c", name="sparkle")
+            elif kind == "butterfly":
+                _, size, pos, c1, c2, rot = spec
+                self.el(y.butterfly(size, c1, c2, rot=rot), pos, anchor="c", name="butterfly")
+            elif kind == "pearl":
+                _, length, pos, bead, arc, rot = spec
+                self.el(y.pearl_string(length, bead, arc=arc), pos, anchor="c",
+                        name="pearls", rot=rot)
+            elif kind == "obj":
+                _, ch, size, pos, rot = spec
+                self.el(y.emoji(ch, size, rot=rot), pos, anchor="c", name="object")
+
+    # --- output ---
+    def build(self):
+        bgp = os.path.join(ART, "s%02d.jpg" % self.idx)
+        self.bg.convert("RGB").save(bgp, quality=94, optimize=True)
+        sl = prs.slides.add_slide(BLANK)
+        sl.shapes.add_picture(bgp, px(0), px(0), px(1920), px(1080))
+        for layer in self.layers:
+            if layer[0] == "img":
+                _, img, x, yy, name = layer
+                path = _save_element(img, name)
+                sl.shapes.add_picture(path, px(x), px(yy),
+                                      px(img.size[0] / S), px(img.size[1] / S))
+            elif layer[0] == "slot":
+                d = layer[1]
+                shp = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, px(d["cx"] - d["w"] / 2),
+                                          px(d["cy"] - d["h"] / 2), px(d["w"]), px(d["h"]))
+                shp.shadow.inherit = False
+                shp.fill.solid()
+                shp.fill.fore_color.rgb = RGBColor.from_string("F3EEF6")
+                shp.line.color.rgb = RGBColor.from_string("FF2E93")
+                shp.line.width = Pt(1)
+                shp.line.dash_style = MSO_LINE_DASH_STYLE.DASH
+                if d["rot"]:
+                    shp.rotation = d["rot"]
+                p = shp.text_frame.paragraphs[0]
+                p.alignment = PP_ALIGN.CENTER
+                r = p.add_run()
+                r.text = "drop photo"
+                r.font.name = BODY_F
+                r.font.size = Pt(9)
+                r.font.color.rgb = RGBColor.from_string("B99BB3")
+            else:
+                d = layer[1]
+                tb = sl.shapes.add_textbox(px(d["x"]), px(d["y"]), px(d["w"]), px(d["h"]))
+                tf = tb.text_frame
+                tf.word_wrap = True
+                tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+                tf.vertical_anchor = d["anchor"]
+                lines = d["text"] if isinstance(d["text"], (list, tuple)) else [d["text"]]
+                for i, t in enumerate(lines):
+                    p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+                    p.alignment = d["align"]
+                    p.line_spacing = d["spacing"]
+                    p.space_after = Pt(d["after"] if len(lines) > 1 else 0)
+                    r = p.add_run()
+                    r.text = t
+                    r.font.name = d["font_name"]
+                    r.font.size = Pt(d["size"])
+                    r.font.bold = d["bold"]
+                    r.font.color.rgb = RGBColor.from_string(d["color"])
+        return sl
+
+
+def page_marks(s, n, title):
+    """Editorial furniture: corner rules and a folio."""
+    s.hairline(96, 62, 1728, NOIR, 1)
+    s.hairline(96, 1018, 1728, NOIR, 1)
+    s.label(96, 30, title.upper(), 13, NOIR, 9)
+    s.label(1824, 30, "%02d" % n, 13, MAGENTA, 6, fnt=ITALIANA, anchor="tr")
+
+
+# ============================================================ 1 — the cover
 def slide01():
-    art = canvas(y.linear_gradient((y.W, y.H), [(0, (255, 230, 245)), (.5, (255, 247, 252)),
-                                                (1, (255, 224, 242))]))
-    paste(art, y.feather(y.halftone((u(1150), u(720)), (255, 186, 224), (255, 245, 251)).convert("RGBA"),
-                         r=u(420), t=u(300)), (0, 360))
-    paste(art, y.leopard((y.W, u(104))), (0, 0))
-    paste(art, y.lace_strip(y.W, u(54), (255, 255, 255)), (0, 100))
-    paste(art, y.leopard((y.W, u(104)), seed=11), (0, 976))
-    paste(art, y.lace_strip(y.W, u(54), (255, 255, 255), flip=True), (0, 922))
+    s = Slide(1, y.linear_gradient((y.W, y.H), [(0, BLUSH), (.45, SHELL), (1, (255, 226, 241))]))
+    s.wash(y.feather(y.halftone((y.W, u(520)), ROSE, SHELL).convert("RGBA"), t=u(360)), (0, 520))
+    s.wash(y.leopard_chic((y.W, u(108))), (0, 0))
+    s.wash(y.lace_black(y.W, u(46)), (0, 104))
+    s.wash(y.leopard_chic((y.W, u(76)), seed=14), (0, 1004))
+    s.wash(y.lace_black(y.W, u(46), flip=True), (0, 960))
 
-    paste(art, y.marquee((492, 48), "*  2 0 2 6   P O R T F O L I O  *"), (92, 176))
-    paste(art, y.bedazzled("ZAHRA", font(BUBBLE, 124)), (70, 224))
-    paste(art, y.chrome_text("LEVINA", font(BUBBLE, 124)), (70, 386))
-    paste(art, y.sticker_text("creative · content · marketing", font(BUNGEE, 26), LIME), (94, 570))
-    paste(art, y.sticker_text("visual communication", font(BUNGEE, 26), CYBER), (94, 638))
-    for i, (lab, col) in enumerate([("WHATSAPP", HOT), ("EMAIL", LILAC), ("LINKEDIN", CYBER)]):
-        paste(art, y.gel((252, 74), col, label=lab), (94 + i * 268, 724))
-    paste(art, y.pixel_text("+62 8xx-xxxx-xxxx   ·   hello@email.com   ·   linkedin.com/in/username",
-                            14, (104, 84, 128)), (96, 826))
+    s.label(960, 176, "2026 PORTFOLIO", 26, NOIR, 22, fnt=ITALIANA, anchor="tc")
+    s.el(y.hairline(280, MAGENTA, 1.4), (820, 222), name="rule")
+    s.label(960, 244, "CREATIVE · CONTENT · MARKETING · VISUAL COMMUNICATION",
+            14, MAGENTA, 8, anchor="tc")
 
-    slots = []
-    photo_card(art, (1236, 196), (520, 600), -6, "me.jpg", slots)
-    photo_card(art, (1006, 668), (280, 300), 9, "hi.jpg", slots)
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    paste(over, y.tape(212, angle=-18), (1212, 192))
-    paste(over, y.tape(186, angle=13, color=(255, 200, 235)), (1600, 728))
-    paste(over, y.starburst(88, color=BUTTER, rot=6), (1012, 372), anchor="c")
-    paste(over, y.pixel_text("NEW\n2026", 13, INKY), (1012, 372), anchor="c")
-    stickers(over, [("\U0001F98B", 132, (1210, 186), -14), ("\U0001F4BF", 104, (1836, 340), 8),
-                    ("\U0001F4F1", 108, (900, 430), 12), ("\U0001F495", 110, (1798, 800), -8),
-                    ("\u2B50", 84, (900, 196), 0), ("\U0001F380", 98, (1858, 172), -10),
-                    ("\U0001F48E", 74, (874, 596), 0), ("\U0001F3A7", 88, (676, 902), 6),
-                    ("\U0001F338", 70, (1318, 998), 0)])
-    y.glitter(over, 120, box=(u(60), u(150), y.W, u(930)), seed=9)
-    return assemble(1, art, slots, over)
+    s.framed_slot((656, 282), (608, 496), stone=17)
+    s.el(y.jewel_outline(y.script("Zahra", 158), stone=23), (960, 602), anchor="tc",
+         name="wordmark")
+    s.label(960, 818, "L E V I N A", 46, NOIR, 22, fnt=ITALIANA, anchor="tc")
+    s.el(y.tracked("WHATSAPP  ·  EMAIL  ·  LINKEDIN", font(SILK, 12), (150, 120, 142),
+                   tracking=4), (960, 896), anchor="tc", name="contact")
 
-# ========================================================= 2 — scrapbook page
+    s.jewels([
+        ("butterfly", 152, (560, 386), MAGENTA, ROSE, -16),
+        ("butterfly", 104, (1382, 344), ROSE, BLUSH, 14),
+        ("butterfly", 76, (1330, 800), ICE, (150, 205, 232), -8),
+        ("gem", 62, (1318, 262), MAGENTA, "heart", 0),
+        ("gem", 48, (608, 572), ROSE, "marquise", 20),
+        ("gem", 44, (1344, 560), MAGENTA, "round", 0),
+        ("gem", 40, (612, 790), ICE, "round", 0),
+        ("gem", 36, (1320, 742), MAGENTA, "heart", 0),
+        ("sparkle", 46, (486, 556), (255, 255, 255)),
+        ("sparkle", 36, (1442, 470), (255, 255, 255)),
+        ("sparkle", 28, (656, 274), (255, 255, 255)),
+        ("pearl", 300, (300, 560), 24, 26, -8),
+        ("pearl", 300, (1620, 570), 24, 26, 8),
+        ("obj", "\U0001F4BF", 92, (318, 318), -12),
+        ("obj", "\U0001F4F1", 86, (1608, 300), 10),
+        ("obj", "\U0001F4F7", 88, (306, 822), 8),
+        ("obj", "\U0001F484", 78, (1626, 830), -10),
+    ])
+    return s.build()
+
+
+# ============================================================ 2 — about
 def slide02():
-    art = canvas(y.grid_paper((y.W, y.H), bg=(255, 250, 253), line=(255, 218, 238)))
-    paste(art, y.feather(y.halftone((u(700), u(500)), (198, 168, 255), (255, 250, 253)).convert("RGBA"),
-                         l=u(300), b=u(280)), (1220, 0))
-    paste(art, y.zigzag_strip(y.W, u(26), HOT), (0, 1044))
-    paste(art, y.torn_paper((1020, 566), (255, 255, 255)), (76, 306))
-    paste(art, y.bedazzled("HI, I'M ZAHRA!", font(BUBBLE, 82)), (70, 130))
-    paste(art, y.tape(206, angle=-7, color=(198, 242, 78)), (118, 290))
-    paste(art, y.tape(206, angle=5), (872, 294))
-    paste(art, y.speech_bubble((330, 118), BABY), (1136, 116))
-    paste(art, y.pixel_text("say hi! <3", 18, (150, 40, 110)), (1180, 150))
+    s = Slide(2, y.linear_gradient((y.W, y.H), [(0, SHELL), (1, (255, 240, 248))]))
+    s.wash(y.feather(y.halftone((u(760), u(620)), ROSE, SHELL).convert("RGBA"),
+                     r=u(420), b=u(380)), (0, 0))
+    page_marks(s, 2, "about")
 
-    slots = []
-    photo_card(art, (1210, 274), (480, 546), 5, "webcam.jpg", slots)
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    paste(over, y.tape(184, angle=16, color=(255, 214, 240)), (1182, 256))
-    stickers(over, [("\U0001F4BB", 120, (1084, 826), -10), ("\u2728", 76, (1758, 240), 0),
-                    ("\U0001F33F", 96, (1786, 818), 12), ("\U0001F3A7", 92, (162, 872), -8),
-                    ("\U0001F31F", 70, (1020, 190), 0), ("\U0001F48C", 84, (330, 906), 7),
-                    ("\U0001F338", 76, (556, 926), -6), ("\U0001F4CC", 68, (804, 902), 0)])
-    y.glitter(over, 80, seed=4)
-    sl = assemble(2, art, slots, over)
-    T(sl, 128, 358, 900, 480, [
+    s.label(140, 168, "HI, I'M", 58, NOIR, 18, fnt=ITALIANA)
+    s.el(y.script("Zahra", 118), (128, 236), name="script")
+    s.hairline(140, 430, 620, MAGENTA, 1.4)
+    s.label(140, 456, "CREATIVE · MARKETING · COMMUNITY", 14, MAGENTA, 7)
+
+    s.text(140, 508, 870, 420, [
         "I'm a creative and marketing enthusiast with experience in content creation, social media, graphic design, event management, and brand partnerships.",
         "With a background in agricultural community development, I've had the opportunity to work across different environments—from student organizations and research projects to building a wellness community through Sawala Space.",
         "I enjoy turning ideas into clear, engaging, and purposeful creative work.",
-    ], size=13, spacing=1.55, after=12)
-    return sl
+    ], size=11.5, spacing=1.8, after=14)
 
-# ====================================================== 3 — magazine spread
+    s.framed_slot((1120, 180), (560, 700), stone=16, caption="portrait.jpg")
+    s.jewels([
+        ("pearl", 380, (1400, 160), 22, 20, 0),
+        ("butterfly", 120, (1096, 268), MAGENTA, ROSE, -18),
+        ("butterfly", 72, (1714, 786), ROSE, BLUSH, 12),
+        ("gem", 44, (1706, 232), MAGENTA, "marquise", 70),
+        ("gem", 34, (1080, 736), MAGENTA, "round", 0),
+        ("sparkle", 38, (1044, 520), (255, 255, 255)),
+        ("obj", "\U0001F4AC", 66, (912, 880), -8),
+    ])
+    s.el(y.tracked("ABOUT_ZAHRA.TXT", font(SILK, 11), (170, 146, 168), tracking=3), (140, 978),
+         name="filelabel")
+    return s.build()
+
+
+# ============================================================ 3 — what i do
 def slide03():
-    art = canvas(y.linear_gradient((y.W, y.H), [(0, (255, 255, 255)), (1, (255, 246, 252))]))
-    paste(art, y.feather(y.halftone((u(1040), y.H), HOT, (255, 255, 255)).convert("RGBA"),
-                         r=u(360)), (0, 0))
-    paste(art, y.chrome_text("WHAT", font(BUNGEE, 116)), (58, 92))
-    paste(art, y.chrome_text("I DO", font(BUNGEE, 116)), (58, 226))
-    paste(art, y.sticker_text("four ways i work", font(BUNGEE, 24), LIME), (86, 392))
-    paste(art, y.starburst(104, color=BUTTER, rot=10), (240, 596), anchor="c")
-    paste(art, y.pixel_text("PICK\nONE", 15, INKY), (240, 596), anchor="c")
-    stickers(art, [("\U0001F4F8", 116, (490, 560), -12), ("\U0001F3A8", 112, (620, 700), 8),
-                   ("\U0001F4E3", 104, (420, 800), -6), ("\U0001F4AC", 100, (196, 826), 10)])
-    paste(art, y.marquee((y.W / S, 50), "CONTENT  *  DESIGN  *  CAMPAIGNS  *  EVENTS  *  PARTNERSHIPS  *  COMMUNITY  *"),
-          (0, 1012))
+    s = Slide(3, y.linear_gradient((y.W, y.H), [(0, SHELL), (1, (255, 238, 247))]))
+    s.wash(y.feather(y.halftone((u(880), y.H), ROSE, SHELL).convert("RGBA"), l=u(480)),
+           (1040, 0))
+    page_marks(s, 3, "services")
 
-    geo = [(1010, 74, -2, HOT, "01"), (1046, 306, 2, LILAC, "02"),
-           (1010, 538, 2, CYBER, "03"), (1046, 770, -2, LIME, "04")]
-    mats = [lambda: y.dotted_note((824, 206)),
-            lambda: y.torn_paper((824, 206), (255, 255, 255)),
-            lambda: y.bevel_panel((824, 206), fill=(236, 248, 255), radius=12),
-            lambda: y.dotted_note((824, 206), fill=(240, 255, 222), edge=(186, 214, 120))]
-    for (cx, cy, rot, col, num), mat in zip(geo, mats):
-        paste(art, mat(), (cx, cy), rot=rot)
-        paste(art, y.gel((74, 74), col, radius=37, label=num), (cx + 34, cy + 30))
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    for cx, cy, rot, col, num in geo:
-        paste(over, y.tape(150, angle=rot * 5, color=(255, 236, 160)), (cx + 330, cy - 22))
-    y.glitter(over, 70, seed=11)
-    sl = assemble(3, art, None, over)
-    body = [("Content & Social Media", "Content creation · social media · copywriting"),
-            ("Creative & Visual", "Graphic design · visual communication · campaign materials"),
-            ("Marketing & Events", "Campaign development · event management · brand partnerships"),
-            ("Communication", "Community engagement · collaboration · project coordination")]
-    for (title, sub), (cx, cy, rot, col, num) in zip(body, geo):
-        T(sl, cx + 128, cy + 44, 640, 56, title, size=17, font_name=UI_F, bold=True)
-        T(sl, cx + 130, cy + 102, 640, 80, sub, size=12.5, color=MUTE_HEX, spacing=1.4)
-    return sl
+    s.label(140, 136, "WHAT I DO", 76, NOIR, 16, fnt=ITALIANA)
+    s.hairline(140, 268, 1080, NOIR, 1.2)
+    s.label(140, 292, "FOUR WAYS I WORK", 14, MAGENTA, 8)
 
-# ==================================================== 4 — desktop explorer
+    rows = [("01", "CONTENT & SOCIAL MEDIA", "Content creation · social media · copywriting"),
+            ("02", "CREATIVE & VISUAL", "Graphic design · visual communication · campaign materials"),
+            ("03", "MARKETING & EVENTS", "Campaign development · event management · brand partnerships"),
+            ("04", "COMMUNICATION", "Community engagement · collaboration · project coordination")]
+    for i, (num, title, sub) in enumerate(rows):
+        ry = 372 + i * 158
+        s.el(y.grad_text(num, font(BODONI, 62), [(0, ROSE), (1, MAGENTA)], outline=0,
+                         rim=0, shadow=0, gloss=False), (142, ry - 14), name="numeral")
+        s.label(296, ry + 6, title, 22, NOIR, 10)
+        s.text(298, ry + 52, 880, 56, sub, size=12, color=MUTE, spacing=1.4)
+        s.el(y.gem(24, MAGENTA), (274, ry + 26), anchor="c", name="gem")
+        if i < 3:
+            s.hairline(140, ry + 116, 1080, (222, 200, 216), 1)
+
+    s.el(y.gem_heart(230), (1500, 250), anchor="tc", name="gemheart")
+    s.jewels([
+        ("butterfly", 132, (1320, 600), MAGENTA, ROSE, -14),
+        ("butterfly", 86, (1664, 700), ROSE, BLUSH, 16),
+        ("pearl", 320, (1500, 810), 24, 24, 0),
+        ("gem", 44, (1300, 302), MAGENTA, "marquise", 110),
+        ("gem", 36, (1712, 400), ICE, "round", 0),
+        ("sparkle", 42, (1660, 180), (255, 255, 255)),
+        ("sparkle", 30, (1288, 460), (255, 255, 255)),
+        ("gem", 30, (1400, 896), ROSE, "round", 0),
+        ("gem", 26, (1600, 908), MAGENTA, "marquise", 50),
+        ("sparkle", 26, (1500, 880), (255, 255, 255)),
+    ])
+    return s.build()
+
+
+# ============================================================ 4 — experience
 def slide04():
-    art = canvas(y.sky((y.W, y.H), top=(150, 210, 255), bottom=(226, 248, 208)))
-    art = y.scanlines(art, alpha=22)
-    for i, (ch, lab) in enumerate([("\U0001F5A5", "my computer"), ("\U0001F4C2", "my work"),
-                                   ("\U0001F5D1", "recycle bin")]):
-        desk_icon(art, (112, 96 + i * 190), ch, lab)
-    paste(art, y.chrome_text("WHERE I'VE BEEN", font(BUNGEE, 62)), (258, 44))
+    s = Slide(4, y.linear_gradient((y.W, y.H), [(0, (255, 236, 246)), (1, SHELL)]))
+    s.wash(y.feather(y.halftone((u(820), u(560)), ROSE, (255, 236, 246)).convert("RGBA"),
+                     r=u(460), b=u(340)), (0, 0))
+    page_marks(s, 4, "experience")
 
-    win, body = y.win_frame((1560, 716), "C:\\ zahra \\ experience", bar=(LILAC, CYBER))
-    paste(art, win, (248, 176))
-    bx, by = 248 + body[0] / S, 176 + body[1] / S
-    side_w = 286
-    paste(art, y.bevel_panel((side_w, 656), fill=(238, 244, 255), radius=8), (bx + 10, by + 10))
-    paste(art, y.pixel_text("QUICK LINKS", 13, (90, 70, 140)), (bx + 34, by + 36))
-    for i, lnk in enumerate(["> all folders", "> by year", "> by role", "> creative", "> orgs"]):
-        paste(art, y.pixel_text(lnk, 12, (110, 96, 150)), (bx + 34, by + 84 + i * 40))
-    paste(art, y.dotted_note((228, 132)), (bx + 38, by + 470))
-    paste(art, y.pixel_text("visitors\n000512", 14, (150, 110, 60)), (bx + 66, by + 500))
-    paste(art, y.emoji("\U0001F6A7", 66), (bx + 150, by + 300), anchor="c")
+    s.label(140, 126, "WHERE I'VE BEEN", 58, NOIR, 14, fnt=ITALIANA)
+    win, body = y.chic_window((1500, 700), "experience.exe", accent=MAGENTA)
+    s.el(win, (196, 250), name="window")
+    bx = 196 + body[0] / S
+    by = 250 + body[1] / S
+    inner_w = (body[2] - body[0]) / S
 
-    marks = ["\U0001F490", "\U0001F3DB", "\U0001F393", "\U0001F33E", "\U0001F4E3"]
-    for i in range(5):
-        ry = by + 24 + i * 124
-        paste(art, y.emoji("\U0001F4C1", 74), (bx + side_w + 54, ry + 10))
-        paste(art, y.emoji(marks[i], 60), (bx + side_w + 1126, ry + 44), anchor="c")
-        paste(art, y.rainbow_rule(1170, 6), (bx + side_w + 48, ry + 106))
-
-    bar = y.linear_gradient((y.W, u(70)), [(0, (150, 196, 255)), (.5, (96, 150, 232)), (1, (60, 110, 200))])
-    paste(art, bar, (0, 1010))
-    paste(art, y.gel((170, 50), LIME, label="START"), (18, 1020))
-    for i, t in enumerate(["experience.exe", "portfolio_2026"]):
-        paste(art, y.bevel_panel((300, 50), fill=(228, 240, 255), radius=8), (206 + i * 316, 1020))
-        paste(art, y.pixel_text(t, 12, (60, 50, 100)), (226 + i * 316, 1036))
-    paste(art, y.bevel_panel((240, 50), fill=(228, 240, 255), radius=8), (1656, 1020))
-    paste(art, y.pixel_text("04/10  10:30 PM", 12, (60, 50, 100)), (1676, 1036))
-
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    stickers(over, [("\U0001F4C2", 88, (1854, 206), 10), ("\u2728", 68, (156, 704), 0),
-                    ("\U0001F31F", 72, (1844, 880), 0), ("\U0001F4BE", 78, (110, 880), -8)])
-    paste(over, y.cursor(56), (1290, 832))
-    sl = assemble(4, art, None, over)
-    orgs = [("Sawala Space", "Co-Founder · Creative & Marketing"),
-            ("Kementerian Pertanian RI", "Intern · Administration & Partnership Support"),
-            ("IPB University", "Research Assistant"),
-            ("Nabila Farm Lembang", "Intern · Agriculture & Content Creation"),
-            ("Himpunan Mahasiswa PPP", "Head of Media & Branding")]
+    orgs = [("SAWALA SPACE", "Co-Founder · Creative & Marketing"),
+            ("KEMENTERIAN PERTANIAN RI", "Intern · Administration & Partnership Support"),
+            ("IPB UNIVERSITY", "Research Assistant"),
+            ("NABILA FARM LEMBANG", "Intern · Agriculture & Content Creation"),
+            ("HIMPUNAN MAHASISWA PPP", "Head of Media & Branding")]
     for i, (org, role) in enumerate(orgs):
-        ry = by + 24 + i * 124
-        T(sl, bx + side_w + 150, ry + 16, 1000, 46, org, size=18, font_name=UI_F, bold=True)
-        T(sl, bx + side_w + 152, ry + 58, 1000, 36, role, size=13, color=MUTE_HEX)
-    return sl
+        ry = by + 40 + i * 126
+        s.el(y.gem(24, MAGENTA if i % 2 == 0 else ROSE), (bx + 58, ry + 28), anchor="c", name="gem")
+        s.label(bx + 100, ry + 8, org, 21, NOIR, 9)
+        s.text(bx + 102, ry + 52, 900, 44, role, size=12.5, color=MUTE)
+        s.el(y.tracked("0%d" % (i + 1), font(ITALIANA, 22), (214, 180, 206), tracking=4),
+             (bx + inner_w - 70, ry + 14), name="rownum")
+        if i < 4:
+            s.hairline(bx + 56, ry + 100, inner_w - 120, (232, 212, 228), 1)
 
-# ==================================================== 5 — personal website
+    s.jewels([
+        ("pearl", 420, (430, 246), 22, 26, -6),
+        ("butterfly", 118, (1720, 306), MAGENTA, ROSE, 16),
+        ("butterfly", 70, (250, 872), ROSE, BLUSH, -12),
+        ("gem", 40, (1776, 660), MAGENTA, "heart", 0),
+        ("gem", 32, (148, 630), ICE, "round", 0),
+        ("sparkle", 36, (1792, 496), (255, 255, 255)),
+        ("obj", "\U0001F4BE", 72, (150, 320), -10),
+    ])
+    return s.build()
+
+
+# ============================================================ 5 — sawala space
 def slide05():
-    art = canvas(y.holo_sheet((y.W, y.H)))
-    paste(art, y.bevel_panel((1700, 830), fill=(255, 255, 255), radius=18), (110, 142))
-    paste(art, y.marquee((1700, 48), "*  W E L C O M E   2   S A W A L A   S P A C E  *  WELLNESS COMMUNITY & EVENT ORGANIZER  *  NOW OPEN  *"),
-          (110, 96))
-    for i, (lab, col) in enumerate([("BACK", CYBER), ("HOME", LIME), ("FAVES", HOT)]):
-        paste(art, y.gel((136, 48), col, label=lab, text_c=(40, 26, 60) if col is LIME else (255, 255, 255)),
-              (146 + i * 150, 176))
-    paste(art, y.bevel_panel((1120, 48), fill=(246, 248, 255), radius=10), (606, 176))
-    paste(art, y.pixel_text("http://www.sawalaspace.com/index.html", 13, (120, 104, 140)), (630, 188))
+    s = Slide(5, y.linear_gradient((y.W, y.H), [(0, SHELL), (1, (255, 235, 245))]))
+    s.wash(y.leopard_chic((u(132), y.H), seed=22), (0, 0))
+    s.wash(y.lace_black(y.H, u(44)).rotate(-90, expand=True), (128, 0))
+    s.wash(y.feather(y.halftone((u(700), u(520)), ROSE, SHELL).convert("RGBA"),
+                     l=u(380), t=u(300)), (1220, 560))
+    s.label(1824, 30, "05", 13, MAGENTA, 6, fnt=ITALIANA, anchor="tr")
 
-    sx = 146
-    paste(art, y.bevel_panel((300, 580), fill=(252, 240, 250), radius=10), (sx, 250))
-    paste(art, y.pixel_text("* MENU *", 14, (150, 40, 110)), (sx + 28, 276))
-    for i, lnk in enumerate(["> about us", "> events", "> classes", "> partners", "> gallery", "> contact"]):
-        paste(art, y.pixel_text(lnk, 12, (120, 96, 150)), (sx + 28, 326 + i * 42))
-    paste(art, y.gel((236, 54), LILAC, label="GUESTBOOK"), (sx + 32, 596))
-    paste(art, y.emoji("\U0001F6A7", 72), (sx + 150, 704), anchor="c")
-    paste(art, y.pixel_text("under\nconstruction", 11, (140, 110, 60)), (sx + 150, 748), anchor="tc")
+    s.el(y.glass_panel((1560, 800), radius=22), (248, 132), name="panel")
+    s.el(y.glass_panel((1160, 46), radius=23, tint=(255, 255, 255), alpha=235), (300, 190),
+         name="urlbar")
+    s.el(y.tracked("HTTP://WWW.SAWALASPACE.COM", font(SILK, 12), (168, 142, 166), tracking=3),
+         (340, 206), name="url")
+    for i in range(3):
+        s.el(y.pearl(18), (300 + i * 30, 204), name="dot")
 
-    mx = 500
-    paste(art, y.bedazzled("SAWALA SPACE", font(BUBBLE, 60)), (mx - 14, 258))
-    paste(art, y.sticker_text("wellness community & event organizer", font(BUNGEE, 20), LILAC), (mx, 374))
-    paste(art, y.rainbow_rule(700, 8), (mx, 432))
-    paste(art, y.pixel_text(">> MY ROLE", 14, (150, 40, 110)), (mx, 742))
-    for i, lab in enumerate(["CONTENT", "SOCIAL", "CAMPAIGN"]):
-        paste(art, y.gel((222, 56), HOT, label=lab), (mx + i * 234, 786))
-    for i, lab in enumerate(["EVENT", "PARTNER", "BRANDING"]):
-        paste(art, y.gel((222, 56), LILAC, label=lab), (mx + i * 234, 856))
+    s.el(y.script("Sawala Space", 84), (306, 258), name="logo")
+    s.label(320, 414, "WELLNESS COMMUNITY & EVENT ORGANIZER", 15, MAGENTA, 8)
+    s.hairline(320, 456, 640, NOIR, 1.2)
+    s.text(320, 492, 690, 250,
+           "As a co-founder, I contribute to the creative and marketing side of Sawala Space, from developing event concepts and promotional content to managing brand partnerships and supporting event execution.",
+           size=12, spacing=1.8)
 
-    slots = []
-    photo_card(art, (1238, 250), (520, 330), 3, "sawala_space.jpg", slots, lip=14)
-    photo_card(art, (1238, 606), (250, 260), -4, "event.jpg", slots, lip=12)
-    photo_card(art, (1508, 606), (250, 260), 5, "community.jpg", slots, lip=12)
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    paste(over, y.tape(156, angle=-14, color=(198, 242, 78)), (1218, 238))
-    stickers(over, [("\U0001F33F", 96, (1156, 244), -12), ("\U0001F490", 92, (1812, 560), 10),
-                    ("\u2728", 66, (1196, 906), 0), ("\U0001F9FF", 74, (94, 862), 0),
-                    ("\U0001F31F", 64, (1860, 214), 0)])
-    sl = assemble(5, art, slots, over)
-    T(sl, mx, 466, 706, 260,
-      "As a co-founder, I contribute to the creative and marketing side of Sawala Space, from developing event concepts and promotional content to managing brand partnerships and supporting event execution.",
-      size=12.5, spacing=1.6)
-    return sl
+    s.label(320, 740, "MY ROLE", 14, NOIR, 9)
+    for row, group in enumerate([["CONTENT", "SOCIAL MEDIA", "CAMPAIGN"],
+                                 ["EVENT", "PARTNERSHIP", "BRANDING"]]):
+        widths = [42 + len(r) * 12.5 for r in group]
+        gap = (690 - sum(widths)) / (len(group) - 1)
+        rx, ry = 320, 786 + row * 62
+        for r, wv in zip(group, widths):
+            s.pill(r, (rx, ry))
+            rx += wv + gap
 
-# ======================================================= 6 — contact sheet
+    s.framed_slot((1090, 250), (520, 330), stone=14, caption="sawala_space.jpg")
+    s.framed_slot((1090, 640), (250, 250), stone=13, caption="event.jpg")
+    s.framed_slot((1360, 640), (250, 250), stone=13, caption="community.jpg")
+    s.jewels([
+        ("butterfly", 104, (1074, 236), MAGENTA, ROSE, -16),
+        ("gem", 40, (1626, 252), MAGENTA, "heart", 0),
+        ("gem", 30, (1340, 606), ROSE, "round", 0),
+        ("sparkle", 34, (1640, 612), (255, 255, 255)),
+        ("pearl", 300, (1350, 950), 20, 18, 0),
+    ])
+    return s.build()
+
+
+# ============================================================ 6 — selected works
 def slide06():
-    art = canvas(y.linear_gradient((y.W, y.H), [(0, (255, 240, 249)), (1, (236, 243, 255))]))
-    paste(art, y.checkerboard((y.W, u(52)), c1=INKY), (0, 0))
-    paste(art, y.checkerboard((y.W, u(52)), c1=INKY), (0, 1028))
-    paste(art, y.sticker_text("SELECTED", font(BUNGEE, 54), HOT), (64, 84), rot=-3)
-    paste(art, y.sticker_text("CREATIVE WORKS", font(BUNGEE, 54), LILAC), (64, 164), rot=-3)
-    for i, lab in enumerate(["SOCIAL MEDIA", "EVENT VISUALS", "PROMO", "BRANDING"]):
-        col = [CYBER, LIME, HOT, BUTTER][i]
-        paste(art, y.gel((244, 52), col, label=lab,
-                         text_c=(40, 26, 60) if col in (LIME, BUTTER) else (255, 255, 255)),
-              (872 + i * 258, 96))
-    slots = []
-    grid = [(92, 300, -6, "ig_carousel"), (560, 268, 4, "event_poster"), (1028, 302, -3, "reels_cover"),
-            (1470, 264, 7, "brand_kit"), (92, 668, 5, "feed_layout"), (560, 700, -4, "promo_flyer"),
-            (1028, 664, 3, "campaign"), (1470, 692, -5, "merch")]
-    for gx, gy, rot, cap in grid:
-        photo_card(art, (gx, gy), (378, 300), rot, cap + ".jpg", slots, lip=15)
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    for gx, gy, rot, cap in grid[::3]:
-        paste(over, y.tape(142, angle=rot * 3, color=(255, 214, 240)), (gx + 116, gy - 18))
-    stickers(over, [("\U0001F4F7", 104, (58, 626), -10), ("\U0001F39E", 86, (1874, 604), 8),
-                    ("\u2728", 64, (524, 626), 0), ("\U0001F496", 76, (1004, 1004), 0),
-                    ("\U0001F31F", 62, (1448, 630), 0)])
-    paste(over, y.cursor(58), (1832, 950))
-    y.glitter(over, 90, seed=6)
-    sl = assemble(6, art, slots, over)
-    T(sl, 872, 186, 980, 70,
-      "A selection of social media content, event materials, promotional visuals, and other creative work I've developed across different projects.",
-      size=12.5, color=MUTE_HEX, spacing=1.4)
-    return sl
+    s = Slide(6, y.linear_gradient((y.W, y.H), [(0, SHELL), (1, (255, 241, 248))]))
+    page_marks(s, 6, "selected works")
+    s.label(140, 120, "SELECTED WORKS", 60, NOIR, 14, fnt=ITALIANA)
+    s.hairline(140, 226, 1640, NOIR, 1.2)
+    s.label(140, 250, "SOCIAL MEDIA · EVENT VISUALS · PROMOTIONAL MATERIALS · BRANDING",
+            13, MAGENTA, 7)
+    s.text(1160, 112, 640, 104,
+           "A selection of social media content, event materials, promotional visuals, and other creative work I've developed across different projects.",
+           size=10.5, color=MUTE, spacing=1.5)
 
-# ========================================================== 7 — event flyer
+    caps = ["ig carousel", "event poster", "reels cover", "brand kit",
+            "feed layout", "promo flyer", "campaign visual", "merch design"]
+    for i, cap in enumerate(caps):
+        gx = 140 + (i % 4) * 412
+        gy = 324 + (i // 4) * 352
+        hero = i in (0, 5)
+        s.framed_slot((gx, gy), (368, 256), stone=14 if hero else 11,
+                      color=MAGENTA if hero else ROSE, caption=cap)
+    s.jewels([
+        ("butterfly", 96, (1826, 470), MAGENTA, ROSE, 18),
+        ("butterfly", 64, (116, 690), ROSE, BLUSH, -14),
+        ("gem", 34, (552, 660), MAGENTA, "heart", 0),
+        ("gem", 26, (1376, 300), MAGENTA, "round", 0),
+        ("sparkle", 30, (964, 662), (255, 255, 255)),
+        ("sparkle", 24, (1790, 292), (255, 255, 255)),
+    ])
+    return s.build()
+
+
+# ============================================================ 7 — stretch for stray
 def slide07():
-    art = canvas(y.linear_gradient((y.W, y.H), [(0, (230, 248, 194)), (.45, (255, 250, 220)),
-                                                (1, (202, 238, 255))]))
-    paste(art, y.feather(y.halftone((y.W, u(460)), (255, 210, 110), (255, 250, 222)).convert("RGBA"),
-                         t=u(300)), (0, 620))
-    paste(art, y.zigzag_strip(y.W, u(30), HOT), (0, 0))
-    paste(art, y.zigzag_strip(y.W, u(30), LILAC), (0, 1050))
-    paste(art, y.chrome_text("STRETCH", font(BUNGEE, 90)), (612, 76))
-    paste(art, y.sticker_text("FOR STRAY", font(BUNGEE, 78), HOT), (620, 208))
-    paste(art, y.sticker_text("wellness × social impact", font(BUNGEE, 22), LIME), (628, 348))
-    paste(art, y.dotted_note((720, 384)), (620, 556))
-    paste(art, y.pixel_text("MY CONTRIBUTION", 15, (150, 90, 40)), (660, 588))
-    for i in range(5):
-        paste(art, y.emoji("\u2705", 34), (666, 638 + i * 56))
-    slots = []
-    photo_card(art, (86, 196), (494, 644), -4, "poster_final.jpg", slots)
-    photo_card(art, (1400, 424), (424, 216), 3, "documentation.jpg", slots, lip=13)
-    photo_card(art, (1400, 676), (424, 216), -3, "social_post.jpg", slots, lip=13)
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    paste(over, y.tape(196, angle=-16, color=(255, 236, 160)), (66, 182))
-    paste(over, y.starburst(112, color=BUTTER, rot=8), (1672, 178), anchor="c")
-    paste(over, y.pixel_text("FOR THE\nSTRAYS", 14, INKY), (1672, 178), anchor="c")
-    stickers(over, [("\U0001F43E", 98, (566, 132), -14), ("\U0001F415", 118, (1376, 306), 8),
-                    ("\U0001F49A", 84, (1358, 946), 0), ("\u2728", 68, (1330, 126), 0),
-                    ("\U0001F9D8", 108, (300, 946), 6), ("\U0001F33F", 82, (1852, 944), -8),
-                    ("\U0001F49D", 78, (1590, 962), 10)])
-    sl = assemble(7, art, slots, over)
-    T(sl, 624, 428, 730, 100,
-      "A wellness event combining movement, community, and support for animal welfare.",
-      size=15, spacing=1.45)
+    s = Slide(7)
+    s.wash(y.linear_gradient((y.W, y.H), [(0, SHELL), (1, (255, 240, 248))]))
+    s.wash(y.linear_gradient((u(880), y.H), [(0, (255, 92, 174)), (1, MAGENTA)]), (0, 0))
+    s.wash(y.feather(y.halftone((u(880), u(520)), (255, 170, 214), MAGENTA).convert("RGBA"),
+                     t=u(360)), (0, 560))
+    s.wash(y.lace_black(y.H, u(40)).rotate(90, expand=True), (840, 0))
+    s.label(1824, 30, "07", 13, MAGENTA, 6, fnt=ITALIANA, anchor="tr")
+
+    s.framed_slot((140, 210), (580, 660), stone=16, color=(255, 255, 255), caption=None)
+    s.el(y.tracked("POSTER_FINAL.JPG", font(SILK, 11), (255, 214, 236), tracking=3),
+         (430, 890), anchor="tc", name="caption")
+
+    s.label(960, 180, "WELLNESS × SOCIAL IMPACT", 14, MAGENTA, 9)
+    s.el(y.grad_text("STRETCH", font(BODONI, 84), [(0, NOIR), (1, NOIR)], outline=0, rim=0,
+                     shadow=0, gloss=False), (952, 216), name="title")
+    s.el(y.script("for stray", 96), (952, 340), name="scripttitle")
+    s.hairline(960, 500, 760, NOIR, 1.2)
+    s.text(960, 530, 500, 110,
+           "A wellness event combining movement, community, and support for animal welfare.",
+           size=13, spacing=1.6)
+
+    s.label(960, 676, "MY CONTRIBUTION", 14, MAGENTA, 9)
     for i, it in enumerate(["Campaign concept", "Event promotion", "Social media content",
                             "Partnership communication", "Event coordination"]):
-        T(sl, 716, 636 + i * 56, 560, 46, it, size=13.5, font_name=UI_F, anchor=MSO_ANCHOR.MIDDLE)
-    return sl
+        iy = 720 + i * 52
+        s.el(y.gem(18, MAGENTA if i % 2 == 0 else ROSE), (972, iy + 16), anchor="c", name="gem")
+        s.text(1002, iy, 480, 42, it, size=12.5, anchor=MSO_ANCHOR.MIDDLE)
 
-# =================================================== 8 — cut-and-paste page
+    s.framed_slot((1520, 690), (250, 190), stone=12, caption="documentation")
+    s.framed_slot((1520, 430), (250, 190), stone=12, caption="social post")
+    s.jewels([
+        ("butterfly", 124, (806, 300), (255, 255, 255), BLUSH, -16),
+        ("butterfly", 78, (1646, 300), MAGENTA, ROSE, 14),
+        ("gem", 48, (784, 640), (255, 255, 255), "heart", 0),
+        ("gem", 34, (806, 860), (255, 255, 255), "round", 0),
+        ("sparkle", 40, (742, 176), (255, 255, 255)),
+        ("sparkle", 30, (1836, 606), (255, 255, 255)),
+        ("obj", "\U0001F43E", 70, (172, 950), -12),
+        ("gem", 40, (660, 950), (255, 255, 255), "heart", 0),
+        ("pearl", 260, (420, 952), 20, 16, 0),
+    ])
+    return s.build()
+
+
+# ============================================================ 8 — beyond
 def slide08():
-    art = canvas(y.gingham((y.W, y.H), c=(255, 168, 214)))
-    paste(art, y.torn_paper((1780, 244), (255, 255, 255)), (70, 54))
-    paste(art, y.sticker_text("BEYOND CREATIVE WORK", font(BUNGEE, 54), HOT), (104, 88))
-    mats = [(y.dotted_note((524, 412)), (100, 392), -3, "\U0001F4E3"),
-            (y.torn_paper((524, 412), (255, 255, 255)), (690, 366), 2, "\U0001F3AD"),
-            (y.bevel_panel((524, 412), fill=(234, 248, 255), radius=12), (1284, 396), -2, "\U0001F4DA")]
-    for card, pos, rot, ch in mats:
-        paste(art, card, pos, rot=rot)
-        paste(art, y.emoji(ch, 88, rot=rot * 2), (pos[0] + 264, pos[1] + 92), anchor="c")
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    for pos, rot in [((100, 392), -14), ((690, 366), 10), ((1284, 396), -8)]:
-        paste(over, y.tape(176, angle=rot, color=(255, 236, 160)), (pos[0] + 176, pos[1] - 32))
-    stickers(over, [("\u2702", 88, (62, 676), -20), ("\U0001F4CC", 78, (1858, 358), 0),
-                    ("\u2728", 60, (642, 946), 0), ("\U0001F31F", 66, (1244, 336), 0),
-                    ("\U0001F58D", 80, (1846, 946), 12)])
-    y.glitter(over, 60, seed=3)
-    sl = assemble(8, art, None, over)
-    T(sl, 108, 190, 1520, 70,
-      "My creative experience also grew through student organizations, academic projects, and collaborative work.",
-      size=14, color=MUTE_HEX)
-    blocks = [("Himpunan Mahasiswa PPP", "Head of Media & Branding"),
-              ("Pekan Seni Budaya IPB", "Vice Head / Staff DKV"),
-              ("Academic & Research Projects", "Visual communication · presentation · documentation")]
-    for (title, sub), (card, pos, rot, ch) in zip(blocks, mats):
-        T(sl, pos[0] + 46, pos[1] + 176, 432, 110, title, size=16, font_name=UI_F, bold=True, spacing=1.25)
-        T(sl, pos[0] + 46, pos[1] + 292, 432, 100, sub, size=12.5, color=MUTE_HEX, spacing=1.4)
-    return sl
+    s = Slide(8, y.linear_gradient((y.W, y.H), [(0, (255, 238, 247)), (1, SHELL)]))
+    s.wash(y.feather(y.halftone((y.W, u(420)), ROSE, SHELL).convert("RGBA"), b=u(300)), (0, 0))
+    s.wash(y.leopard_chic((y.W, u(104)), seed=33), (0, 976))
+    s.wash(y.lace_black(y.W, u(46), flip=True), (0, 932))
+    s.label(1824, 30, "08", 13, MAGENTA, 6, fnt=ITALIANA, anchor="tr")
 
-# ======================================================== 9 — sticker sheet
+    s.label(140, 118, "BEYOND", 56, NOIR, 16, fnt=ITALIANA)
+    s.el(y.script("creative work", 76), (470, 100), name="script")
+    s.hairline(140, 246, 1000, NOIR, 1.2)
+    s.text(140, 272, 1180, 60,
+           "My creative experience also grew through student organizations, academic projects, and collaborative work.",
+           size=13, color=MUTE)
+
+    blocks = [("HIMPUNAN MAHASISWA PPP", "Head of Media & Branding", -2, MAGENTA),
+              ("PEKAN SENI BUDAYA IPB", "Vice Head / Staff DKV", 1.5, ROSE),
+              ("ACADEMIC & RESEARCH PROJECTS", "Visual communication · presentation · documentation",
+               -1, MAGENTA)]
+    for i, (title, sub, tilt, col) in enumerate(blocks):
+        cx = 140 + i * 552
+        cy = 396 + (12 if i == 1 else 0)
+        s.el(y.glass_panel((500, 400), radius=16), (cx - 18, cy - 18), name="card", rot=tilt)
+        s.el(y.gem(30, col, cut="heart"), (cx + 56, cy + 62), anchor="c", name="gem")
+        s.text(cx + 48, cy + 110, 400, 130, title, size=15, bold=True, spacing=1.35,
+               font_name="Trebuchet MS")
+        s.el(y.hairline(180, MAGENTA, 1.2), (cx + 48, cy + 244), name="rule")
+        s.text(cx + 48, cy + 272, 400, 110, sub, size=12, color=MUTE, spacing=1.5)
+    s.jewels([
+        ("pearl", 340, (960, 366), 20, 16, 0),
+        ("butterfly", 92, (1700, 300), MAGENTA, ROSE, 15),
+        ("butterfly", 60, (108, 560), ROSE, BLUSH, -12),
+        ("sparkle", 34, (1786, 560), (255, 255, 255)),
+        ("gem", 28, (860, 880), MAGENTA, "round", 0),
+    ])
+    return s.build()
+
+
+# ============================================================ 9 — skills
 def slide09():
-    art = canvas(y.sky((y.W, y.H), top=(184, 226, 255), bottom=(230, 250, 212), seed=8))
-    art = y.scanlines(art, alpha=16)
-    paste(art, y.feather(y.halftone((u(700), u(460)), (255, 176, 222), (240, 248, 255)).convert("RGBA"),
-                         l=u(320), b=u(260)), (1220, 0))
-    paste(art, y.chrome_text("SKILLS & TOOLS", font(BUNGEE, 64)), (88, 54))
-    icons = [["\U0001F58C", "\u270D", "\U0001F4F8", "\U0001F5BC"],
-             ["\U0001F4F1", "\U0001F4C8", "\U0001F389", "\U0001F91D"]]
-    cols = [("CREATIVE", ["Graphic Design", "Copywriting", "Content Creation", "Visual Communication"], HOT),
-            ("MARKETING", ["Social Media", "Campaign Development", "Event Management", "Partnership"], LILAC)]
+    s = Slide(9, y.linear_gradient((y.W, y.H), [(0, SHELL), (1, (255, 237, 246))]))
+    s.wash(y.feather(y.halftone((u(820), u(560)), ROSE, SHELL).convert("RGBA"),
+                     l=u(460), b=u(340)), (1100, 0))
+    page_marks(s, 9, "skills & tools")
+    s.label(140, 126, "SKILLS", 62, NOIR, 16, fnt=ITALIANA)
+    s.el(y.script("& tools", 82), (450, 112), name="script")
+    s.hairline(140, 258, 1640, NOIR, 1.2)
+
+    cols = [("CREATIVE", ["Graphic Design", "Copywriting", "Content Creation",
+                          "Visual Communication"], MAGENTA),
+            ("MARKETING", ["Social Media", "Campaign Development", "Event Management",
+                           "Partnership"], ROSE)]
     for i, (title, items, col) in enumerate(cols):
-        cx = 92 + i * 898
-        paste(art, y.bevel_panel((860, 384), fill=(255, 255, 255), radius=16), (cx, 218))
-        paste(art, y.gel((258, 54), col, label=title), (cx + 30, 240))
-        for j in range(len(items)):
-            ry = 330 + j * 74
-            paste(art, y.emoji(icons[i][j], 42), (cx + 36, ry + 4))
-            paste(art, y.bevel_panel((296, 24), fill=(236, 239, 250), radius=12), (cx + 518, ry + 16))
-            paste(art, y.gel((296 - j * 24, 24), col, radius=12), (cx + 518, ry + 16))
-    sheet = y.perforate(y.bevel_panel((1756, 246), fill=(255, 244, 251), radius=18))
-    paste(art, sheet, (92, 646))
-    paste(art, y.pixel_text("TOOLS.PNG  —  drag 2 desktop", 14, (140, 120, 170)), (128, 672))
-    tools = [("Canva", CYBER), ("Adobe Illustrator", BUTTER), ("Adobe Photoshop", LILAC),
-             ("CapCut", HOT), ("Microsoft Office", LIME), ("Google Workspace", CYBER),
-             ("Minitab", BUBBLEGUM)]
-    for row, group in enumerate([tools[:4], tools[4:]]):
-        widths = [90 + len(t) * 17 for t, _ in group]
-        span, left, right = sum(widths), 128, 1812
-        gap = (right - left - span) / max(1, len(group) - 1)
-        tx, ty = left, 720 if row == 0 else 804
-        for (t, col), w in zip(group, widths):
-            paste(art, y.gel((w, 62), col, label=t.upper(),
-                             text_c=(40, 26, 60) if col in (BUTTER, LIME) else (255, 255, 255)), (tx, ty))
-            tx += w + gap
-    paste(art, y.marquee((1756, 50), "*  C A N V A  *  ILLUSTRATOR  *  PHOTOSHOP  *  CAPCUT  *  OFFICE  *  WORKSPACE  *  MINITAB  *"),
-          (92, 952))
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    stickers(over, [("\U0001F3A8", 108, (1802, 140), 10), ("\U0001F5B1", 84, (56, 606), -12),
-                    ("\U0001F4BE", 90, (1868, 640), 8), ("\u2728", 62, (1010, 614), 0),
-                    ("\U0001F4CE", 74, (58, 962), 0), ("\U0001F31F", 66, (1874, 962), 0)])
-    y.glitter(over, 60, seed=12)
-    sl = assemble(9, art, None, over)
-    for i, (title, items, col) in enumerate(cols):
-        cx = 92 + i * 898
+        cx = 140 + i * 860
+        s.label(cx, 306, title, 20, MAGENTA, 10)
+        s.el(y.hairline(300, MAGENTA, 1.2), (cx, 348), name="rule")
         for j, it in enumerate(items):
-            T(sl, cx + 92, 330 + j * 74, 420, 48, it, size=14, font_name=UI_F, anchor=MSO_ANCHOR.MIDDLE)
-    return sl
+            ry = 392 + j * 74
+            s.el(y.gem(20, col, cut="marquise" if j % 2 else "round", rot=j * 20),
+                 (cx + 14, ry + 22), anchor="c", name="gem")
+            s.text(cx + 48, ry, 460, 48, it, size=13.5, anchor=MSO_ANCHOR.MIDDLE)
 
-# ========================================================= 10 — chat thread
+    s.label(140, 690, "TOOLS", 20, MAGENTA, 10)
+    s.el(y.hairline(1640, (226, 204, 220), 1), (140, 732), name="rule")
+    for row, group in enumerate([["CANVA", "ADOBE ILLUSTRATOR", "ADOBE PHOTOSHOP", "CAPCUT"],
+                                 ["MICROSOFT OFFICE", "GOOGLE WORKSPACE", "MINITAB"]]):
+        widths = [42 + len(t) * 12.5 for t in group]
+        gap = (1640 - sum(widths)) / (len(group) - 1)
+        tx, ty = 140, 772 + row * 76
+        for t, wv in zip(group, widths):
+            s.pill(t, (tx, ty), height=50, color=NOIR)
+            tx += wv + gap
+    s.jewels([
+        ("butterfly", 104, (1716, 400), MAGENTA, ROSE, 16),
+        ("butterfly", 62, (1846, 812), ROSE, BLUSH, -12),
+        ("gem", 42, (1610, 180), MAGENTA, "heart", 0),
+        ("sparkle", 36, (1790, 250), (255, 255, 255)),
+        ("pearl", 260, (1690, 600), 20, 16, 0),
+        ("gem", 34, (1560, 560), ROSE, "round", 0),
+        ("gem", 28, (1830, 660), MAGENTA, "marquise", 40),
+        ("sparkle", 30, (1470, 640), (255, 255, 255)),
+    ])
+    return s.build()
+
+
+# ============================================================ 10 — contact
 def slide10():
-    art = canvas(y.linear_gradient((y.W, y.H), [(0, (255, 226, 243)), (1, (250, 236, 255))]))
-    paste(art, y.feather(y.halftone((u(900), u(560)), (255, 186, 224), (255, 232, 246)).convert("RGBA"),
-                         r=u(340), t=u(240)), (0, 470))
-    paste(art, y.leopard((y.W, u(96)), seed=21), (0, 0))
-    paste(art, y.lace_strip(y.W, u(50), (255, 255, 255)), (0, 92))
-    paste(art, y.leopard((y.W, u(96)), seed=31), (0, 984))
-    paste(art, y.lace_strip(y.W, u(50), (255, 255, 255), flip=True), (0, 934))
-    paste(art, y.chrome_text("LET'S WORK", font(BUBBLE, 100)), (84, 186))
-    paste(art, y.bedazzled("TOGETHER!", font(BUBBLE, 100)), (84, 336))
-    paste(art, y.sticker_text("ZAHRA LEVINA", font(BUNGEE, 32), LIME), (100, 512))
-    for i, (lab, col) in enumerate([("WHATSAPP", HOT), ("EMAIL", LILAC), ("LINKEDIN", CYBER)]):
-        paste(art, y.gel((312, 84), col, label=lab), (98 + i * 332, 606))
-    paste(art, y.pixel_text("+62 8xx-xxxx-xxxx            hello@email.com            /in/username",
-                            13, (110, 88, 142)), (104, 716))
-    paste(art, y.marquee((1724, 52), "*  T H A N K S   4   S T O P P I N G   B Y  *  LET'S CREATE SOMETHING  *"),
-          (98, 846))
-    paste(art, y.speech_bubble((680, 156), (255, 255, 255)), (1122, 194))
-    paste(art, y.speech_bubble((680, 222), BABY, tail="br"), (1122, 424))
-    paste(art, y.speech_bubble((410, 104), (255, 255, 255)), (1122, 700))
-    paste(art, y.pixel_text("see u soon! <3", 15, (150, 40, 110)), (1162, 738))
-    paste(art, y.emoji("\U0001F48C", 100), (1080, 168))
-    over = Image.new("RGBA", (y.W, y.H), (0, 0, 0, 0))
-    stickers(over, [("\U0001F496", 120, (1846, 648), 10), ("\U0001F380", 96, (1650, 726), -12),
-                    ("\u2728", 74, (1812, 186), 0), ("\U0001F4F1", 112, (1790, 872), 8),
-                    ("\u2B50", 70, (1032, 452), 0), ("\U0001F3AB", 86, (868, 748), -8),
-                    ("\U0001F49E", 74, (676, 792), 0)])
-    y.glitter(over, 100, box=(0, u(150), y.W, u(930)), seed=15)
-    sl = assemble(10, art, None, over)
-    T(sl, 1170, 236, 596, 110, "Thank you for taking the time to explore my work.",
-      size=14.5, font_name=UI_F, spacing=1.5)
-    T(sl, 1170, 462, 596, 170,
-      "I'm always open to new creative opportunities, collaborations, and projects.",
-      size=14.5, font_name=UI_F, spacing=1.5)
-    return sl
+    s = Slide(10, y.linear_gradient((y.W, y.H), [(0, (255, 228, 243)), (.5, SHELL),
+                                                 (1, (255, 224, 241))]))
+    s.wash(y.feather(y.halftone((y.W, u(460)), ROSE, SHELL).convert("RGBA"), t=u(320)), (0, 600))
+    s.wash(y.leopard_chic((y.W, u(108)), seed=41), (0, 0))
+    s.wash(y.lace_black(y.W, u(48)), (0, 104))
+    s.wash(y.leopard_chic((y.W, u(72)), seed=55), (0, 1008))
+    s.wash(y.lace_black(y.W, u(46), flip=True), (0, 964))
 
-for fn in [slide01, slide02, slide03, slide04, slide05, slide06, slide07, slide08, slide09, slide10]:
+    s.el(y.gem_heart(210), (960, 206), anchor="tc", name="gemheart")
+    s.label(960, 418, "LET'S WORK", 44, NOIR, 20, fnt=ITALIANA, anchor="tc")
+    s.el(y.jewel_outline(y.script("together", 128), stone=19), (960, 468), anchor="tc",
+         name="wordmark")
+    s.label(960, 660, "Z A H R A   L E V I N A", 22, NOIR, 12, fnt=ITALIANA, anchor="tc")
+    s.el(y.hairline(360, MAGENTA, 1.4), (780, 704), name="rule")
+    s.text(490, 726, 940, 90,
+           "Thank you for taking the time to explore my work. I'm always open to new creative opportunities, collaborations, and projects.",
+           size=12, align=PP_ALIGN.CENTER, spacing=1.6)
+
+    contacts = [("WHATSAPP", "+62 8xx-xxxx-xxxx"), ("EMAIL", "hello@email.com"),
+                ("LINKEDIN", "linkedin.com/in/username")]
+    for i, (lab, val) in enumerate(contacts):
+        cx = 420 + i * 380
+        s.el(y.glass_panel((320, 92), radius=20), (cx - 18, 824), name="card")
+        s.el(y.tracked(lab, font(OSWALD, 14), MAGENTA, tracking=6), (cx + 160, 864),
+             anchor="tc", name="clabel")
+        s.text(cx, 892, 320, 34, val, size=11.5, align=PP_ALIGN.CENTER, color=MUTE)
+
+    s.jewels([
+        ("butterfly", 128, (300, 400), MAGENTA, ROSE, -18),
+        ("butterfly", 96, (1620, 430), ROSE, BLUSH, 16),
+        ("butterfly", 64, (1770, 760), ICE, (150, 205, 232), -10),
+        ("gem", 52, (1700, 236), MAGENTA, "marquise", 30),
+        ("gem", 44, (226, 244), MAGENTA, "heart", 0),
+        ("gem", 32, (188, 726), ROSE, "round", 0),
+        ("gem", 28, (1782, 604), MAGENTA, "round", 0),
+        ("sparkle", 44, (412, 262), (255, 255, 255)),
+        ("sparkle", 34, (1544, 250), (255, 255, 255)),
+        ("sparkle", 28, (250, 560), (255, 255, 255)),
+        ("pearl", 300, (290, 892), 22, 20, -6),
+        ("pearl", 300, (1650, 892), 22, 20, 6),
+        ("obj", "\U0001F48C", 84, (1560, 606), 10),
+        ("obj", "\U0001F484", 72, (380, 606), -8),
+    ])
+    return s.build()
+
+
+for fn in [slide01, slide02, slide03, slide04, slide05, slide06, slide07, slide08,
+           slide09, slide10]:
     fn()
-    print("  rendered", fn.__name__)
+    print("  composed", fn.__name__)
 
 out = os.path.join(HERE, "zahra-levina-portfolio-2026.pptx")
 prs.save(out)
-print("saved", out, "| slides:", len(prs.slides._sldIdLst))
+print("saved", out, "| slides:", len(prs.slides._sldIdLst), "| elements:", len(_written))

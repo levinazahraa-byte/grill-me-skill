@@ -1,91 +1,95 @@
-# Zahra Levina — 2026 Portfolio Deck (Y2K edition)
+# Zahra Levina — 2026 Portfolio · "Angel" direction
 
-Ten 16:9 slides (1920×1080) where the Y2K visual language *is* the identity —
-leopard and lace, chrome and bedazzled type, halftone, gingham, holographic
-foil, glossy gel buttons, torn paper, washi tape, polaroids and sticker
-cut-outs. The desktop/interface idea survives as a supporting device on three
-slides, not as the design system.
+A Y2K fashion-editorial portfolio: tonal pink, black lace, pink leopard,
+rhinestone and chrome-script lettering, pearl strings and butterflies.
+Interface elements appear only where they serve the story, dressed in the same
+palette — never as the organising idea.
 
-Every slide is a different format:
+## The visual system
 
-| # | Format |
+**Palette — deliberately tonal.** Earlier drafts used pink *and* lilac *and*
+cyan *and* lime, which is what makes a deck read like a template. This one runs
+almost entirely on pink against black, with ice blue as a rare cool accent.
+
+`#FF2E93` magenta · `#FF8FC5` rose · `#FFDDEE` blush · `#FFF4F9` shell
+`#100A16` noir · `#FFF8F2` pearl · `#C6E8F6` ice (sparingly)
+
+**Type — editorial, not chunky.**
+
+| Role | Face |
 |---|---|
-| 1 | Cover poster — leopard border, lace trim, bedazzled + chrome name |
-| 2 | Scrapbook page — grid paper, torn-paper panel, tape, speech bubble |
-| 3 | Magazine spread — halftone field, four cards in four materials |
-| 4 | Desktop explorer — sky wallpaper, desk icons, window, taskbar |
-| 5 | Early-2000s personal website — marquee, menu, guestbook, under construction |
-| 6 | Contact sheet — eight tilted polaroids, tape, checkerboard bands |
-| 7 | Event flyer — zigzag borders, starburst, notepad checklist |
-| 8 | Cut-and-paste page — gingham, three cards in three materials |
-| 9 | Sticker sheet — perforated panel, gel sliders, tool pills |
-| 10 | Chat thread — message bubbles, chrome type, contact buttons |
+| Section titles | Italiana, widely letterspaced |
+| The name, signature words | Pinyon Script in rose-chrome, jewelled |
+| Numerals, event titles | Bodoni Moda |
+| Labels, pills, small caps | Oswald, tracked |
+| Interface asides | Silkscreen |
+| Body copy (live text) | Trebuchet MS |
+
+**Decorative vocabulary** — all painted in `y2k.py`, not assembled from basic
+shapes: brilliant-cut rhinestones (round, marquise, heart) with facets and
+specular highlights, rhinestone-paved hearts, jewelled photo frames, pearl
+strings, glossy butterflies, scalloped black lace, pink leopard, halftone
+fields, frosted glass panels, hairline editorial rules.
+
+## Ten slides, ten compositions
+
+| # | Composition |
+|---|---|
+| 1 | Cover — centred portrait, jewelled script wordmark, leopard and lace borders |
+| 2 | About — editorial page, wide margins, script name, framed portrait |
+| 3 | What I do — numbered index with Bodoni numerals and gem bullets |
+| 4 | Where I've been — glossy pink window (the interface motif, dressed) |
+| 5 | Sawala Space — cool-girl personal website with leopard spine |
+| 6 | Selected works — magazine contact sheet, eight jewelled frames |
+| 7 | Stretch for Stray — bold magenta field against shell, lace spine |
+| 8 | Beyond — digital scrapbook, three glass cards |
+| 9 | Skills & tools — tracked lists with gem bullets, glass pills |
+| 10 | Contact — centred, paved gem heart, jewelled script |
+
+## Editability
+
+Every graphic is placed as its **own layer** — 228 separate PNG elements, not a
+flattened picture. Opened in Canva or PowerPoint, each gem, butterfly, frame,
+pill and type treatment is an individual object you can move, resize, delete or
+restyle. Body copy is live text. The element library lives in
+`assets/elements/` if you want to drag pieces into other designs.
+
+Headline lettering (script, chrome, tracked titles) is artwork — to change its
+wording, edit the string in `build_deck.py` and re-run.
 
 ## Files
 
 | File | What it's for |
 |---|---|
-| `zahra-levina-portfolio-2026.pptx` | The deck — open in PowerPoint, Keynote, Google Slides, or import to Canva |
-| `zahra-levina-portfolio-2026.pdf` | Flat export for emailing or attaching |
-| `y2k.py` | Asset foundry — textures, type treatments, stickers, glossy UI |
-| `build_deck.py` | Composes the ten slides and writes the .pptx |
-| `assets/fonts/` | The display typefaces (SIL Open Font License) |
-| `assets/slides/` | Rendered slide artwork |
-
-Regenerate after editing either script:
+| `zahra-levina-portfolio-2026.pptx` | The deck — PowerPoint, Keynote, Google Slides, or import to Canva |
+| `zahra-levina-portfolio-2026.pdf` | Flat export for sending |
+| `y2k.py` | The asset foundry |
+| `build_deck.py` | Composes the ten slides |
+| `assets/elements/` | Every decorative element as a loose PNG |
+| `assets/fonts/` | Display faces (SIL Open Font License) |
 
 ```bash
 pip install python-pptx pillow numpy
 python3 build_deck.py
 ```
 
-## How the deck is built
+## What you swap in
 
-Each slide is **layered artwork** composed in Pillow at 1.5× (2880×1620),
-flattened to a full-bleed image, with two live layers on top in PowerPoint:
-
-1. **Background artwork** — textures, type treatments, panels, UI
-2. **Photo frames** — real PowerPoint shapes you can picture-fill
-3. **Sticker overlay** — transparent PNG so stickers sit *over* your photos
-4. **Live text** — your body copy, still editable in PowerPoint
-
-**What this means for editing:** body copy, role lines and list items are live
-text you can retype. Headlines and decorative labels are *artwork* — to change
-their wording, edit the string in `build_deck.py` and re-run it.
-
-## Typography
-
-Display faces are rendered into the artwork, so nothing needs installing and
-nothing substitutes on another machine:
-
-- **Rubik Bubbles** — the bedazzled/chrome name treatments
-- **Bungee / Bungee Shade** — chunky headline type
-- **Silkscreen · Press Start 2P · VT323** — pixel UI labels
-- **Chicle · Modak · Sigmar One · Bagel Fat One** — accents
-
-All are under the SIL Open Font License (free for commercial use). Sticker
-graphics are rendered from **Noto Color Emoji**, also OFL. Live body copy uses
-Verdana and Tahoma — period-correct for early-2000s web, and on every machine.
-
-## What you need to swap in
-
-**Photos** — dashed frames, already tilted and captioned. In PowerPoint:
-right-click the frame → Format Shape → Fill → Picture fill → Insert. The frame
-keeps its size, tilt and position, and stickers stay layered on top.
+**Photos** — dashed frames inside the jewelled borders. Right-click → Format
+Shape → Fill → Picture fill. The frame, its stones and any butterfly layered on
+top all stay put.
 
 | Slide | Frames |
 |---|---|
-| 1 | portrait (520×600) + small card (280×300) |
-| 2 | webcam photo (480×546) |
-| 5 | Sawala Space visual (520×330) + two 250×260 |
-| 6 | eight work thumbnails (378×300) |
-| 7 | event poster (494×644) + two 424×216 |
+| 1 | portrait, 608 × 496 |
+| 2 | portrait, 560 × 700 |
+| 5 | 520 × 330 plus two 250 × 250 |
+| 6 | eight at 368 × 256 |
+| 7 | poster 580 × 660 plus two 250 × 190 |
 
-**Contact details** — placeholders on slides 1 and 10:
-`+62 8xx-xxxx-xxxx` · `hello@email.com` · `linkedin.com/in/username`.
-These are drawn into the artwork, so edit them in `build_deck.py` and re-run.
+**Contact details** — `+62 8xx-xxxx-xxxx`, `hello@email.com`,
+`linkedin.com/in/username` on slides 1 and 10. Slide 10's are live text; slide
+1's labels are artwork.
 
-## Palette
-
-`#FF3D9E` hot · `#FF8FD0` bubblegum · `#FFD1EB` baby · `#B27BFF` lilac
-`#4DC8FF` cyber · `#C6F24E` lime · `#FFE96B` butter · `#1C1430` ink
+All typefaces are SIL Open Font Licensed and free for commercial use; sticker
+objects are rendered from Noto Color Emoji (also OFL).

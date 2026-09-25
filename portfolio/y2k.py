@@ -647,3 +647,384 @@ def paste(base, img, xy, anchor="tl", rot=None):
         x -= img.size[0]
     base.alpha_composite(img, (int(x), int(y)))
     return img.size
+
+
+# =====================================================================
+#  ANGEL SYSTEM — the chic Y2K vocabulary
+#  Tonal pink · black lace · chrome · rhinestone. Editorial, not cartoon.
+# =====================================================================
+
+MAGENTA = (255, 46, 147)
+ROSE = (255, 143, 197)
+BLUSH = (255, 221, 238)
+SHELL = (255, 244, 249)
+NOIR = (16, 10, 22)
+PEARL = (255, 248, 242)
+ICE = (198, 232, 246)
+
+ITALIANA, BODONI, CORMORANT = "Italiana-Regular.ttf", "BodoniModa.ttf", "CormorantGaramond.ttf"
+PINYON, ALLURA, MONSIEUR = "PinyonScript-Regular.ttf", "Allura-Regular.ttf", "MonsieurLaDoulaise-Regular.ttf"
+OSWALD, ARCHIVO, ARCHIVO_BLACK = "Oswald.ttf", "Archivo.ttf", "ArchivoBlack-Regular.ttf"
+
+PEARL_STOPS = [(0.0, (255, 255, 255)), (0.3, (255, 246, 250)), (0.55, (246, 220, 234)),
+               (0.75, (255, 255, 255)), (1.0, (232, 206, 222))]
+ROSE_CHROME = [(0.00, (255, 255, 255)), (0.12, (255, 236, 246)), (0.36, (255, 138, 196)),
+               (0.475, (176, 24, 104)), (0.495, (176, 24, 104)), (0.54, (255, 120, 186)),
+               (0.66, (255, 250, 253)), (0.82, (255, 190, 224)), (1.00, (214, 96, 162))]
+
+
+def tracked(text, fnt, color=NOIR, tracking=8, shadow=None):
+    """Letterspaced type — the editorial label voice."""
+    pad = u(10)
+    tr = u(tracking)
+    tmp = ImageDraw.Draw(Image.new("L", (10, 10)))
+    widths = [tmp.textlength(c, font=fnt) for c in text]
+    box = tmp.textbbox((0, 0), text, font=fnt)
+    w = int(sum(widths) + tr * max(0, len(text) - 1)) + pad * 2
+    h = box[3] - box[1] + pad * 2
+    img = Image.new("RGBA", (max(1, w), max(1, h)), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    x = pad
+    for ch, cw in zip(text, widths):
+        if shadow:
+            d.text((x + shadow, pad - box[1] + shadow), ch, font=fnt, fill=(255, 255, 255, 180))
+        d.text((x, pad - box[1]), ch, font=fnt, fill=color + (255,))
+        x += cw + tr
+    return img
+
+
+def _facet_poly(cx, cy, r, n=8, phase=0):
+    return [(cx + r * math.cos(phase + 2 * math.pi * i / n),
+             cy + r * math.sin(phase + 2 * math.pi * i / n)) for i in range(n)]
+
+
+def gem(size, color=MAGENTA, cut="round", rot=0, glow=None):
+    """A faceted rhinestone — brilliant cut, table facets, specular."""
+    s = u(size)
+    if glow is None:
+        glow = size >= 30
+    pad = int(s * 0.28)
+    img = Image.new("RGBA", (s + pad * 2, s + pad * 2), (0, 0, 0, 0))
+    cx = cy = (s + pad * 2) / 2
+    r = s / 2
+    d = ImageDraw.Draw(img, "RGBA")
+    if glow:
+        g = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(g).ellipse([cx - r * 1.05, cy - r * 1.05, cx + r * 1.05, cy + r * 1.05],
+                                  fill=mix(color, (255, 255, 255), .6) + (70,))
+        img.alpha_composite(g.filter(ImageFilter.GaussianBlur(s * 0.2)))
+
+    if cut == "marquise":
+        pts = []
+        for i in range(24):
+            t = 2 * math.pi * i / 24
+            pts.append((cx + r * math.cos(t), cy + r * 0.52 * math.sin(t)))
+        pts[0] = (cx + r * 1.12, cy)
+        pts[12] = (cx - r * 1.12, cy)
+    elif cut == "heart":
+        pts = []
+        for i in range(60):
+            t = 2 * math.pi * i / 60
+            hx = 16 * math.sin(t) ** 3
+            hy = -(13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t))
+            pts.append((cx + hx * r / 17, cy + hy * r / 15))
+    else:
+        pts = _facet_poly(cx, cy, r, 8, math.pi / 8)
+
+    body = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    bd = ImageDraw.Draw(body)
+    bd.polygon(pts, fill=mix(color, (255, 255, 255), .35) + (255,))
+    # crown facets: alternate light / deep wedges around the table
+    for i in range(8):
+        a0 = math.pi * 2 * i / 8 + math.radians(rot)
+        a1 = math.pi * 2 * (i + 1) / 8 + math.radians(rot)
+        shade = mix(color, (255, 255, 255), .82) if i % 2 == 0 else mix(color, (0, 0, 0), .22)
+        bd.polygon([(cx, cy), (cx + r * math.cos(a0), cy + r * math.sin(a0) * (0.55 if cut == "marquise" else 1)),
+                    (cx + r * math.cos(a1), cy + r * math.sin(a1) * (0.55 if cut == "marquise" else 1))],
+                   fill=shade + (255,))
+    # table
+    bd.polygon(_facet_poly(cx, cy, r * 0.42, 8, math.pi / 8),
+               fill=mix(color, (255, 255, 255), .72) + (255,))
+    m = Image.new("L", img.size, 0)
+    ImageDraw.Draw(m).polygon(pts, fill=255)
+    clipped = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    clipped.paste(body, (0, 0), m)
+    img.alpha_composite(clipped)
+    d.polygon(pts, outline=(255, 255, 255, 220), width=max(1, u(1.2)))
+    d.ellipse([cx - r * .34, cy - r * .58, cx - r * .02, cy - r * .22], fill=(255, 255, 255, 250))
+    d.ellipse([cx + r * .16, cy + r * .2, cx + r * .34, cy + r * .38], fill=(255, 255, 255, 190))
+    return img
+
+
+def pearl(size, tint=PEARL):
+    s = u(size)
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    base = radial_gradient((s, s), (255, 255, 255), mix(tint, (214, 158, 186), .62))
+    m = Image.new("L", (s, s), 0)
+    ImageDraw.Draw(m).ellipse([0, 0, s - 1, s - 1], fill=255)
+    img.paste(base.convert("RGBA"), (0, 0), m)
+    d = ImageDraw.Draw(img, "RGBA")
+    d.ellipse([s * .2, s * .14, s * .46, s * .38], fill=(255, 255, 255, 235))
+    d.ellipse([s * .58, s * .62, s * .8, s * .82], fill=(255, 255, 255, 110))
+    d.ellipse([0, 0, s - 1, s - 1], outline=(255, 255, 255, 140), width=max(1, u(1)))
+    return img
+
+
+def pearl_string(length, bead=20, spacing=1.05, tint=PEARL, arc=0):
+    n = int(length / (bead * spacing))
+    w, h = u(length), u(bead + abs(arc) + 6)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    b = pearl(bead, tint)
+    for i in range(n + 1):
+        x = i * u(bead * spacing)
+        t = i / max(1, n)
+        yy = u(abs(arc)) * math.sin(math.pi * t) if arc else 0
+        img.alpha_composite(b, (int(x), int(yy)))
+    return img
+
+
+def sparkle(size, color=(255, 255, 255), glow_c=None, tails=1.9):
+    s = u(size)
+    pad = int(s * tails)
+    img = Image.new("RGBA", (pad * 2, pad * 2), (0, 0, 0, 0))
+    cx = cy = pad
+    if glow_c:
+        g = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(g).ellipse([cx - s * .8, cy - s * .8, cx + s * .8, cy + s * .8],
+                                  fill=glow_c + (110,))
+        img.alpha_composite(g.filter(ImageFilter.GaussianBlur(s * .32)))
+    d = ImageDraw.Draw(img, "RGBA")
+    long_r, short_r = s * tails, s * 0.19
+    d.polygon([(cx, cy - long_r), (cx + short_r, cy - short_r), (cx + long_r * .62, cy),
+               (cx + short_r, cy + short_r), (cx, cy + long_r), (cx - short_r, cy + short_r),
+               (cx - long_r * .62, cy), (cx - short_r, cy - short_r)], fill=color + (255,))
+    d.ellipse([cx - s * .12, cy - s * .12, cx + s * .12, cy + s * .12], fill=(255, 255, 255, 255))
+    return img
+
+
+def butterfly(size, c1=MAGENTA, c2=ROSE, rot=0):
+    """Glossy silhouette butterfly, traced from an explicit wing path."""
+    s = u(size)
+    cx, cy = s / 2, s / 2
+    half = [(0.02, -0.32), (0.09, -0.43), (0.20, -0.50), (0.33, -0.50), (0.43, -0.44),
+            (0.47, -0.33), (0.45, -0.21), (0.37, -0.11), (0.24, -0.04), (0.31, 0.03),
+            (0.39, 0.12), (0.42, 0.24), (0.36, 0.34), (0.25, 0.38), (0.14, 0.33),
+            (0.07, 0.22), (0.03, 0.08)]
+    pts = [(cx + x * s, cy + yy * s) for x, yy in half]
+    pts += [(cx - x * s, cy + yy * s) for x, yy in reversed(half)]
+    m = Image.new("L", (s, s), 0)
+    md = ImageDraw.Draw(m)
+    md.polygon(pts, fill=255)
+    md.ellipse([cx - s * .032, cy - s * .33, cx + s * .032, cy + s * .30], fill=255)
+    md.ellipse([cx - s * .05, cy - s * .38, cx + s * .05, cy - s * .27], fill=255)
+    grad = linear_gradient((s, s), [(0, mix(c1, (255, 255, 255), .5)), (.42, c1),
+                                    (1, mix(c2, (0, 0, 0), .16))])
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    img.paste(grad.convert("RGBA"), (0, 0), m)
+    for sgn in (-1, 1):                                   # wing-edge sheen, not eyes
+        gl = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+        ImageDraw.Draw(gl).ellipse([cx + sgn * s * .34 - s * .18, cy - s * .44,
+                                    cx + sgn * s * .34 + s * .18, cy - s * .30],
+                                   fill=(255, 255, 255, 130))
+        gl = gl.rotate(-24 * sgn, resample=Image.BICUBIC, center=(cx, cy))
+        g2 = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+        g2.paste(gl, (0, 0), m)
+        img.alpha_composite(g2.filter(ImageFilter.GaussianBlur(u(4))))
+    d = ImageDraw.Draw(img, "RGBA")
+    d.polygon(pts, outline=NOIR + (255,), width=max(2, u(1.6)))
+    d.ellipse([cx - s * .032, cy - s * .33, cx + s * .032, cy + s * .30],
+              outline=NOIR + (255,), width=max(2, u(1.4)), fill=mix(c1, (0, 0, 0), .25) + (255,))
+    for sgn in (-1, 1):                                   # antennae, drawn in ink so they read
+        d.line([(cx + sgn * s * .015, cy - s * .31), (cx + sgn * s * .11, cy - s * .42),
+                (cx + sgn * s * .19, cy - s * .46)], fill=NOIR + (255,), width=max(2, u(1.6)),
+               joint="curve")
+        d.ellipse([cx + sgn * s * .19 - u(4), cy - s * .46 - u(4),
+                   cx + sgn * s * .19 + u(4), cy - s * .46 + u(4)], fill=NOIR + (255,))
+    rim = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    rim.paste(Image.new("RGBA", (s, s), (255, 255, 255, 255)), (0, 0),
+              ImageChops.subtract(m.filter(ImageFilter.MaxFilter(max(3, u(3) * 2 + 1))), m))
+    out = Image.alpha_composite(rim, img)
+    return out.rotate(rot, resample=Image.BICUBIC, expand=True) if rot else out
+
+
+def jewel_outline(art, stone=17, color=MAGENTA, step=None, pad=None):
+    """Scatter stones sparsely around a silhouette — jewels beside the letters,
+    never paved over them, so thin script stays legible."""
+    pad = pad if pad is not None else u(stone)
+    base = Image.new("RGBA", (art.size[0] + pad * 2, art.size[1] + pad * 2), (0, 0, 0, 0))
+    base.alpha_composite(art, (pad, pad))
+    a = base.split()[3].point(lambda v: 255 if v > 120 else 0)
+    ring = ImageChops.subtract(a.filter(ImageFilter.MaxFilter(u(9) * 2 + 1)),
+                               a.filter(ImageFilter.MaxFilter(u(4) * 2 + 1)))
+    px = ring.load()
+    g = gem(stone, color)
+    step = step or u(stone) * 2.9
+    placed = []
+    w, h = ring.size
+    for yy in range(0, h, max(2, int(step / 3))):
+        for xx in range(0, w, max(2, int(step / 3))):
+            if px[xx, yy] > 120 and all((xx - a0) ** 2 + (yy - b0) ** 2 > step ** 2
+                                        for a0, b0 in placed[-120:]):
+                placed.append((xx, yy))
+                base.alpha_composite(g, (int(xx - g.size[0] / 2), int(yy - g.size[1] / 2)))
+    return base
+
+
+def gem_heart(size, color=MAGENTA, stone=13):
+    """A heart paved with rhinestones."""
+    s = u(size)
+    img = Image.new("RGBA", (s, int(s * .92)), (0, 0, 0, 0))
+    m = Image.new("L", img.size, 0)
+    md = ImageDraw.Draw(m)
+    cx, cy = s / 2, s * .46
+    pts = []
+    for i in range(80):
+        t = 2 * math.pi * i / 80
+        hx = 16 * math.sin(t) ** 3
+        hy = -(13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t))
+        pts.append((cx + hx * s / 36, cy + hy * s / 32))
+    md.polygon(pts, fill=255)
+    px = m.load()
+    g = gem(stone, color)
+    step = u(stone) * 0.86
+    yy = 0
+    row = 0
+    while yy < img.size[1]:
+        xx = (row % 2) * step / 2
+        while xx < img.size[0]:
+            ix, iy = int(min(xx, img.size[0] - 1)), int(min(yy, img.size[1] - 1))
+            if px[ix, iy] > 160:
+                img.alpha_composite(g, (int(xx - g.size[0] / 2), int(yy - g.size[1] / 2)))
+            xx += step
+        yy += step * 0.88
+        row += 1
+    return img
+
+
+def gem_trim(length, horizontal=True, stone=15, color=MAGENTA, spacing=0.92):
+    n = int(length / (stone * spacing))
+    g = gem(stone, color)
+    if horizontal:
+        img = Image.new("RGBA", (u(length), g.size[1]), (0, 0, 0, 0))
+        for i in range(n + 1):
+            img.alpha_composite(g, (int(i * u(stone * spacing)), 0))
+    else:
+        img = Image.new("RGBA", (g.size[0], u(length)), (0, 0, 0, 0))
+        for i in range(n + 1):
+            img.alpha_composite(g, (0, int(i * u(stone * spacing))))
+    return img
+
+
+def gem_frame(size, stone=16, color=MAGENTA, fill=None, inset=None):
+    """Photo frame paved with stones. Returns (image, inner_rect)."""
+    w, h = u(size[0]), u(size[1])
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    pad = u(stone) * 0.9
+    if fill:
+        d.rectangle([pad * .5, pad * .5, w - pad * .5, h - pad * .5], fill=fill + (255,))
+    g = gem(stone, color)
+    step = u(stone) * 0.82
+    gx = g.size[0] / 2
+    x = 0
+    while x <= w:
+        img.alpha_composite(g, (int(x - gx), int(-gx)))
+        img.alpha_composite(g, (int(x - gx), int(h - gx)))
+        x += step
+    yy = 0
+    while yy <= h:
+        img.alpha_composite(g, (int(-gx), int(yy - gx)))
+        img.alpha_composite(g, (int(w - gx), int(yy - gx)))
+        yy += step
+    ins = inset if inset is not None else int(pad)
+    return img, (ins, ins, w - ins, h - ins)
+
+
+def glass_panel(size, radius=18, tint=(255, 255, 255), alpha=214, edge=(255, 255, 255), shadow=True):
+    w, h = u(size[0]), u(size[1])
+    pad = u(18)
+    img = Image.new("RGBA", (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+    r = u(radius)
+    if shadow:
+        sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(sh).rounded_rectangle([pad, pad, pad + w, pad + h], r, fill=(190, 110, 160, 110))
+        img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(u(11))), (0, u(5)))
+    body = Image.new("RGBA", (w, h), tint + (alpha,))
+    gl = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(gl).rectangle([0, 0, w, h * 0.40], fill=(255, 255, 255, 95))
+    body.alpha_composite(gl.filter(ImageFilter.GaussianBlur(u(16))))
+    m = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], r, fill=255)
+    panel = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    panel.paste(body, (0, 0), m)
+    ImageDraw.Draw(panel).rounded_rectangle([0, 0, w - 1, h - 1], r, outline=edge + (230,),
+                                            width=max(2, u(1.6)))
+    img.alpha_composite(panel, (pad, pad))
+    return img
+
+
+def hairline(length, color=NOIR, weight=1.2, horizontal=True):
+    if horizontal:
+        img = Image.new("RGBA", (u(length), max(1, u(weight))), color + (255,))
+    else:
+        img = Image.new("RGBA", (max(1, u(weight)), u(length)), color + (255,))
+    return img
+
+
+def lace_black(width, depth, color=NOIR, flip=False):
+    return lace_strip(width, depth, color=color, flip=flip, scallop=u(26))
+
+
+def leopard_chic(size, seed=7):
+    return leopard(size, base=BLUSH, ring=NOIR, core=MAGENTA, density=0.00019, seed=seed)
+
+
+def script(text, size, stops=None, gems=False, font_name=None, rim=None, shadow=None):
+    """The signature: script lettering in rose-chrome, optionally jewelled."""
+    fnt = font(font_name or PINYON, size)
+    stops = stops or ROSE_CHROME
+    if gems:
+        return bedazzled(text, fnt, stops=stops, gem_r=max(u(3), int(fnt.size * 0.035)),
+                         outline=u(2))
+    return grad_text(text, fnt, stops, outline=u(2), outline_c=NOIR,
+                     rim=rim if rim is not None else u(6),
+                     shadow=shadow if shadow is not None else u(5))
+
+
+def chic_window(size, title, accent=MAGENTA, body=(255, 255, 255), alpha=236):
+    """A glossy pink window — the interface motif, dressed up."""
+    w, h = u(size[0]), u(size[1])
+    bh = u(44)
+    pad = u(16)
+    img = Image.new("RGBA", (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+    sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle([pad, pad, pad + w, pad + h], u(16), fill=(190, 100, 155, 120))
+    img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(u(10))), (0, u(5)))
+    panel = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(panel)
+    d.rounded_rectangle([0, 0, w - 1, h - 1], u(16), fill=body + (alpha,))
+    bar = linear_gradient((w, bh), [(0, mix(accent, (255, 255, 255), .62)), (.46, accent),
+                                    (.54, mix(accent, (0, 0, 0), .18)), (1, mix(accent, (0, 0, 0), .04))])
+    bm = Image.new("L", (w, bh), 0)
+    ImageDraw.Draw(bm).rounded_rectangle([0, 0, w - 1, bh * 2], u(16), fill=255)
+    panel.paste(bar.convert("RGBA"), (0, 0), bm)
+    gl = Image.new("RGBA", (w, bh), (0, 0, 0, 0))
+    ImageDraw.Draw(gl).ellipse([-w * .1, -bh * .85, w * 1.1, bh * .5], fill=(255, 255, 255, 120))
+    g2 = Image.new("RGBA", (w, bh), (0, 0, 0, 0))
+    g2.paste(gl, (0, 0), bm)
+    panel.alpha_composite(g2)
+    t = tracked(title.upper(), font(OSWALD, 15), (255, 255, 255), tracking=5)
+    panel.alpha_composite(t, (u(20), int(bh / 2 - t.size[1] / 2)))
+    for i in range(3):
+        cxx = w - u(28) - i * u(30)
+        panel.alpha_composite(pearl(15), (int(cxx - u(7)), int(bh / 2 - u(7))))
+    d.rounded_rectangle([0, 0, w - 1, h - 1], u(16), outline=(255, 255, 255, 230), width=max(2, u(2)))
+    img.alpha_composite(panel, (pad, pad))
+    return img, (pad, pad + bh, pad + w, pad + h)
+
+
+def bloom(img, strength=0.4, radius=22):
+    """Soft glossy bloom over the whole composition."""
+    base = img.convert("RGBA")
+    bright = base.filter(ImageFilter.GaussianBlur(u(radius)))
+    return Image.blend(base, Image.alpha_composite(base, bright), strength * 0.35)
