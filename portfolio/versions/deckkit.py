@@ -15,6 +15,98 @@ from pptx.enum.dml import MSO_LINE_DASH_STYLE, MSO_THEME_COLOR
 from pptx.oxml.ns import qn
 from lxml import etree
 
+
+# ---------------------------------------------------------------- metrics
+# Design units: the slide is 1920 wide = 960pt, so 1 pt == 2 design px.
+# Fonts are installed locally, so text can be measured instead of guessed.
+from PIL import ImageFont as _IF
+
+_FONT_DIR = "/root/.local/share/fonts/deck"
+_FONT_FILES = {
+    "Italiana": "Italiana-Regular.ttf", "Great Vibes": "GreatVibes-Regular.ttf",
+    "Oswald": "Oswald.ttf", "Bodoni Moda": "BodoniModa.ttf", "Fredoka": "Fredoka.ttf",
+    "VT323": "VT323-Regular.ttf", "Poppins": "Poppins-Regular.ttf",
+    "Archivo Black": "ArchivoBlack-Regular.ttf", "Inter": "Inter.ttf",
+    "Anton": "Anton-Regular.ttf", "Space Mono": "SpaceMono-Regular.ttf",
+    "Nunito": "Nunito.ttf", "Press Start 2P": "PressStart2P-Regular.ttf",
+    "Silkscreen": "Silkscreen-Regular.ttf",
+}
+_BOLD = {"Poppins": "Poppins-Bold.ttf", "Space Mono": "SpaceMono-Bold.ttf"}
+_measure_cache = {}
+
+
+def _pil(font_name, size, bold=False):
+    """size is in points; the face is loaded at design-pixel scale (pt*2)."""
+    fn = (_BOLD.get(font_name) if bold else None) or _FONT_FILES.get(font_name, "Poppins-Regular.ttf")
+    key = (fn, int(size * 2))
+    if key not in _measure_cache:
+        _measure_cache[key] = _IF.truetype(os.path.join(_FONT_DIR, fn), max(4, int(size * 2)))
+    return _measure_cache[key]
+
+
+def measure(text, font_name="Poppins", size=14, tracking=0, bold=False):
+    """Width of one line, in design px."""
+    f = _pil(font_name, size, bold)
+    w = f.getlength(text)
+    if tracking:
+        w += tracking * 2 * max(0, len(text))
+    return w
+
+
+def line_height(font_name="Poppins", size=14, spacing=1.4, bold=False):
+    f = _pil(font_name, size, bold)
+    asc, desc = f.getmetrics()
+    return max(asc + desc, size * 2 * 1.2) * spacing
+
+
+SAFETY = 0.92          # renderer sets slightly wider than PIL measures
+
+
+def wrap(text, font_name="Poppins", size=14, width=800, tracking=0, bold=False):
+    width *= SAFETY
+    words, lines, cur = text.split(), [], ""
+    for wd in words:
+        trial = (cur + " " + wd).strip()
+        if measure(trial, font_name, size, tracking, bold) <= width or not cur:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = wd
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def block_height(body, font_name="Poppins", size=14, width=800, spacing=1.4,
+                 after=0, tracking=0, bold=False):
+    """Predicted rendered height of a paragraph or list of paragraphs."""
+    paras = body if isinstance(body, (list, tuple)) else [body]
+    lh = line_height(font_name, size, spacing, bold)
+    total = 0
+    for i, para in enumerate(paras):
+        total += len(wrap(para, font_name, size, width, tracking, bold)) * lh
+        if i < len(paras) - 1:
+            total += after * 2
+    return total
+
+
+def fit_size(text, font_name="Poppins", max_w=800, max_h=None, start=40, min_size=8,
+             spacing=1.25, tracking=0, bold=False, step=0.5):
+    """Largest size at which the text fits the box."""
+    size = start
+    while size > min_size:
+        paras = text if isinstance(text, (list, tuple)) else [text]
+        ok = True
+        for para in paras:
+            if measure(para, font_name, size, tracking, bold) > max_w and " " not in para:
+                ok = False
+        if ok:
+            h = block_height(text, font_name, size, max_w, spacing, 0, tracking, bold)
+            if max_h is None or h <= max_h:
+                return size
+        size -= step
+    return min_size
+
 W, H = 1920, 1080
 
 def px(v):
@@ -120,13 +212,13 @@ class Slide(object):
     # ---------------------------------------------------------------- text
     def text(self, x, y, w, h, body, font="Poppins", size=14, bold=False, italic=False,
              color="000000", align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP, spacing=1.4,
-             tracking=0, after=8, shape=None, caps=False):
+             tracking=0, after=8, shape=None, caps=False, wrap_text=True):
         if shape is None:
             tb = self.sl.shapes.add_textbox(px(x), px(y), px(w), px(h))
         else:
             tb = shape
         tf = tb.text_frame
-        tf.word_wrap = True
+        tf.word_wrap = wrap_text
         tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
         tf.vertical_anchor = anchor
         lines = body if isinstance(body, (list, tuple)) else [body]
@@ -171,11 +263,13 @@ class Slide(object):
 
     def pill(self, x, y, text, size=12, pad=34, h=44, fill="FFFFFF", color="000000",
              line=None, font="Oswald", tracking=5, bold=False, radius=0.5, width=None):
-        w = width or (pad * 2 + len(text) * (size * 1.3 + tracking * 2.2))
+        w = width or (pad * 2 + measure(text, font, size, tracking, bold) / SAFETY)
         s = self.shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h, fill=fill, line=line,
                        lw=1.25, radius=radius)
         tf = s.text_frame
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+        tf.word_wrap = False
         p = tf.paragraphs[0]
         p.alignment = PP_ALIGN.CENTER
         r = p.add_run()
@@ -218,6 +312,88 @@ class Slide(object):
             self.rect(tx + 2, y + h - 8, 30, 8, fill=fill)
         self.text(x + pad, y + 18, w - pad * 2, h - 34, text, font=font, size=size,
                   color=color, spacing=spacing, anchor=MSO_ANCHOR.MIDDLE)
+
+
+
+    def head(self, x, y, text, font="Italiana", size=40, color="000000", tracking=0,
+             caps=False, max_w=None, spacing=1.15, align=PP_ALIGN.LEFT, bold=False,
+             italic=False, gap=0, one_line=False, min_size=10):
+        """Draw a heading, auto-shrunk to fit max_w, and return its bottom edge."""
+        txt = text.upper() if caps else text
+        if max_w and one_line:
+            while size > min_size and measure(txt, font, size, tracking, bold) > max_w * SAFETY:
+                size -= 0.5
+        if one_line:
+            lines, box_w = [txt], max(max_w or 0, measure(txt, font, size, tracking, bold) + 80)
+        else:
+            lines = wrap(txt, font, size, max_w or 4000, tracking, bold)
+            box_w = max_w or 1700
+        lh = line_height(font, size, spacing, bold)
+        h = lh * len(lines) + lh * 0.25
+        self.text(x, y, box_w, h, txt, font=font, size=size, color=color,
+                  tracking=tracking, spacing=spacing, align=align, bold=bold,
+                  italic=italic, wrap_text=not one_line)
+        return y + h + gap
+
+    def para(self, x, y, w, body, font="Poppins", size=13, color="000000", spacing=1.7,
+             after=16, max_h=None, italic=False, align=PP_ALIGN.LEFT, tracking=0,
+             gap=0, min_size=8):
+        """Draw body copy, shrinking only if it would not fit max_h. Returns bottom."""
+        if max_h:
+            while size > min_size and block_height(body, font, size, w, spacing, after,
+                                                   tracking) > max_h:
+                size -= 0.5
+        h = block_height(body, font, size, w, spacing, after, tracking)
+        self.text(x, y, w, h + 10, body, font=font, size=size, color=color,
+                  spacing=spacing, after=after, italic=italic, align=align,
+                  tracking=tracking)
+        return y + h + gap
+
+    # ------------------------------------------------------------ imagery
+    SHAPES = {"rect": MSO_SHAPE.RECTANGLE, "rrect": MSO_SHAPE.ROUNDED_RECTANGLE,
+              "oval": MSO_SHAPE.OVAL, "hex": MSO_SHAPE.HEXAGON,
+              "oct": MSO_SHAPE.OCTAGON, "para": MSO_SHAPE.PARALLELOGRAM,
+              "trap": MSO_SHAPE.TRAPEZOID, "diamond": MSO_SHAPE.DIAMOND,
+              "pent": MSO_SHAPE.PENTAGON, "plaque": MSO_SHAPE.PLAQUE,
+              "arch": MSO_SHAPE.ROUND_2_SAME_RECTANGLE,
+              "snip": MSO_SHAPE.SNIP_2_DIAG_RECTANGLE,
+              "snip1": MSO_SHAPE.SNIP_1_RECTANGLE,
+              "round1": MSO_SHAPE.ROUND_1_RECTANGLE,
+              "tag": MSO_SHAPE.PENTAGON, "heart": MSO_SHAPE.HEART,
+              "cloud": MSO_SHAPE.CLOUD, "star": MSO_SHAPE.STAR_5_POINT}
+
+    def cut(self, kind, x, y, w, h, label="drop photo", fill="E4E6EE", line=None,
+            lw=3, rot=0, radius=None, label_color="7C8398", size=10, shadow=None,
+            font="Poppins", dash=False):
+        """A picture placeholder that is NOT a plain rectangle — picture-fill it
+        in Canva/PowerPoint and the silhouette is kept."""
+        s = self.shape(self.SHAPES.get(kind, MSO_SHAPE.RECTANGLE), x, y, w, h,
+                       fill=fill, line=line, lw=lw, radius=radius, rot=rot,
+                       shadow=shadow,
+                       dash=MSO_LINE_DASH_STYLE.DASH if dash else None)
+        tf = s.text_frame
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        r = p.add_run()
+        r.text = label
+        r.font.name = font
+        r.font.size = Pt(size)
+        r.font.color.rgb = C(label_color)
+        return s
+
+    def annot(self, x, y, text, color="000000", size=10, font="Space Mono",
+              leader=0, tracking=3, align=PP_ALIGN.LEFT, width=320):
+        """A small annotation, optionally with a leader rule."""
+        if leader:
+            self.rect(x, y + size * 1.5, leader, 1.5, fill=color)
+        return self.text(x + (leader + 10 if leader else 0), y, width, size * 2.6, text,
+                         font=font, size=size, color=color, tracking=tracking,
+                         align=align)
+
+    def tape(self, x, y, w=150, h=40, rot=-8, fill="F4E6A8", alpha=62):
+        return self.rect(x, y, w, h, fill=fill, rot=rot, alpha=alpha)
 
     def pic(self, path, x, y, w, h=None):
         if h is None:
