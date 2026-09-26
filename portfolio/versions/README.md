@@ -1,6 +1,6 @@
-# Five art directions · one portfolio
+# Six art directions · one portfolio
 
-Same ten slides, same copy, five completely different visual systems — one per
+Same ten slides, same copy, six completely different visual systems — one per
 reference. Built to be compared, then developed.
 
 | | Direction | Reference | Mood |
@@ -10,8 +10,9 @@ reference. Built to be compared, then developed.
 | **03** | **SOFT DESK** | Ref 3 | Clean creator energy — white browser on soft blue, Archivo Black + yellow highlighter. Airy, minimal, calm |
 | **04** | **AERO** | Ref 4 | Frutiger Aero — lime-to-aqua gradients, glossy app panels, status bar and dock. Techy, bright |
 | **05** | **CHAT** | Ref 5 | Blown-up message thread — acid yellow/lime, thick black outlines, bubbles, starbursts. Loud, playful |
+| **06** | **LONGSHOT** | Ref 6 | Y2K collage poster — airbrushed colour fields, chrome italic type on dark blobs, outlined starbursts, glowing photo cut-outs. Printed, dense, magazine-ad |
 
-`00-compare-all-five.png` puts five slides from each side by side.
+`00-compare-all-six.png` puts five slides from each side by side.
 
 ## Files
 
@@ -25,9 +26,12 @@ These are **native PowerPoint objects, not flattened images**:
 - Backgrounds, cards, panels, bars and pills are real shapes with editable
   fills, gradients, outlines and corner radii
 - Photo frames are shapes: right-click → Format Shape → Fill → Picture fill
-- Direction 01 is the only one using images, for four ornaments that can't be
-  shapes (leopard, lace, rhinestones, butterflies). Each is its own layer and
-  can be moved or deleted; the source PNGs are in `ornaments/`
+- Direction 01 uses images for four ornaments that can't be shapes (leopard,
+  lace, rhinestones, butterflies) — each its own layer, sources in `ornaments/`
+- Direction 06 uses images for its airbrushed grounds, film grain, chrome
+  lettering and starbursts (a metal gradient and a blend are not shapes).
+  Panels, tiles, chips, rules and all copy stay native; sources in
+  `ornaments06/`
 
 Every typeface is a Google Font available in Canva, so nothing substitutes:
 
@@ -38,13 +42,14 @@ Every typeface is a Google Font available in Canva, so nothing substitutes:
 | 03 | Archivo Black | Space Mono | Inter |
 | 04 | Nunito | Poppins | Nunito |
 | 05 | Anton | Space Mono | Poppins |
+| 06 | Archivo Black (chrome, as art) | Poppins Bold | Poppins Italic |
 
 ## Code
 
 `deckkit.py` is the shared toolkit (shapes, text, windows, pills, bubbles,
 photo frames). `content.py` holds the copy once — edit it and every version
-updates. `v01_*.py` … `v05_*.py` are the five layout systems; they share no
-layout code, only primitives.
+updates. `v01_*.py` … `v06_*.py` are the six layout systems; they share no
+layout code, only primitives. `poster.py` is direction 06's raster foundry.
 
 ```bash
 pip install python-pptx pillow lxml
