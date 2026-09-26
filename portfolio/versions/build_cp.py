@@ -3,11 +3,12 @@
 import os
 import deckkit
 import cp01_bedazzled, cp02_dollhouse, cp03_softdesk, cp04_aero, cp05_chat
+import cp06_longshot
 
 OUT = os.path.dirname(os.path.abspath(__file__))
 V = [("01", "bedazzled", cp01_bedazzled), ("02", "dollhouse", cp02_dollhouse),
      ("03", "softdesk", cp03_softdesk), ("04", "aero", cp04_aero),
-     ("05", "chat", cp05_chat)]
+     ("05", "chat", cp05_chat), ("06", "longshot", cp06_longshot)]
 for num, name, mod in V:
     d = deckkit.Deck()
     mod.build(d)
